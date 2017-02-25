@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='graph_sanity',
+    name='vert',
     version='0.0',
     packages=find_packages(),
     url='',

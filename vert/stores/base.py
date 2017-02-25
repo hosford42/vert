@@ -1,22 +1,22 @@
-from typing import NewType, Hashable, Any, Optional, Iterator, NamedTuple
+from typing import NewType, Hashable, Any, Optional, Iterator, NamedTuple, Union
 
 
 # This cannot be aliased because the graphs submodule depends on this one.
-import graph_sanity.graphs
+import vert.graphs
 
 
-VertexID = NewType('VertexID', Hashable)
+VertexID = NewType('VertexID', Union[int, str, bytes])
 EdgeID = NamedTuple('EdgeId', [('source', VertexID), ('sink', VertexID)])
 Label = NewType('Label', Hashable)
 
 
 class GraphStore:
 
-    def __init__(self, graph: 'graph_sanity.graphs.Graph'):
+    def __init__(self, graph: 'vert.graphs.Graph'):
         self._graph = graph
 
     @property
-    def graph(self) -> 'graph_sanity.graphs.Graph':
+    def graph(self) -> 'vert.graphs.Graph':
         return self._graph
 
     def count_vertices(self) -> int:

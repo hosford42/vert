@@ -2,8 +2,8 @@ import collections.abc
 
 from typing import Union, Iterator, Hashable, Any
 
-from graph_sanity.stores.base import GraphStore, EdgeID, Label, VertexID
-from graph_sanity.stores.memory import MemoryGraphStore
+from vert.stores.base import GraphStore, EdgeID, Label, VertexID
+from vert.stores.memory import MemoryGraphStore
 
 
 VertexOrID = Union[VertexID, 'Vertex']

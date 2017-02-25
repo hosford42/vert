@@ -1,9 +1,9 @@
-# Graph Sanity
-*Sane interface for graphs*
+# Vert
+*Graphs for Python*
  
 ## TODO:
 
-* Add a graph_sanity.stores.dbm module and implement a persistent graph store
+* Add a vert.stores.dbm module and implement a persistent graph store
   on top of the built-in dbm module. Use this as the default when a path string
   is passed to the Graph constructor.
 * Add graph stores for neo4j, tinkerpop, networkx, and other back ends.
