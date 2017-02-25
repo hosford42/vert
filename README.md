@@ -3,10 +3,12 @@
  
 ## TODO:
 
-* Add a vert.stores.dbm module and implement a persistent graph store
-  on top of the built-in dbm module. Use this as the default when a path string
-  is passed to the Graph constructor.
-* Add graph stores for neo4j, tinkerpop, networkx, and other back ends.
-* Add algorithms such as path finding and pattern matching. These should be
-  implemented by the graph store, rather than at the interface level.
+* Add separately installable graph stores for neo4j, tinkerpop, networkx, and 
+  other back ends.
+* Add algorithms such as path finding and pattern matching. Whenever possible,
+  these should be implemented by the graph store, rather than at the interface 
+  level. By having the interface classes inspect the graph store for the method
+  before calling it, it should be possible to fall back on a slower default 
+  client-side implementation when the store does not provide one.
 * Add transactions and make the code thread-safe.
+* Add support for reading & writing common graph file formats.
