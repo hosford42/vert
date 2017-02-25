@@ -2,12 +2,14 @@ from typing import Hashable, Any, Optional, Iterator
 
 
 import graph_sanity.stores.base as base
-import graph_sanity.graphs as graphs
+
+# This cannot be aliased, because the graphs submodule depends on this one.
+import graph_sanity.graphs
 
 
 class MemoryGraphStore(base.GraphStore):
 
-    def __init__(self, graph: 'graphs.Graph'):
+    def __init__(self, graph: 'graph_sanity.graphs.Graph'):
         super().__init__(graph)
         self.forward = {}
         self.backward = {}
@@ -29,26 +31,47 @@ class MemoryGraphStore(base.GraphStore):
     def iter_edges(self) -> Iterator[base.EdgeID]:
         for source, sinks in self.forward.items():
             for sink in sinks:
-                yield (source, sink)
+                yield base.EdgeID(source, sink)
 
-    def iter_sources(self, sink: base.VertexID) -> Iterator[base.VertexID]:
-        return iter(self.backward.get(sink, ()))
+    def has_source(self, sink: base.VertexID) -> bool:
+        return bool(self.backward.get(sink, ()))
 
-    def iter_sinks(self, source: base.VertexID) -> Iterator[base.VertexID]:
-        return iter(self.forward.get(source, ()))
+    def has_sink(self, source: base.VertexID) -> bool:
+        return bool(self.forward.get(source, ()))
 
-    def count_sources(self, sink: base.VertexID) -> int:
-        return len(self.backward.get(sink, ()))
+    def iter_sources(self, sink: Optional[base.VertexID] = None) -> Iterator[base.VertexID]:
+        if sink is None:
+            for vid, sinks in self.forward.items():
+                if sinks:
+                    yield vid
+        else:
+            yield from self.backward.get(sink, ())
 
-    def count_sinks(self, source: base.VertexID) -> int:
-        return len(self.forward.get(source, ()))
+    def iter_sinks(self, source: Optional[base.VertexID] = None) -> Iterator[base.VertexID]:
+        if source is None:
+            for vid, sources in self.backward.items():
+                if sources:
+                    yield vid
+        else:
+            yield from self.forward.get(source, ())
+
+    def count_sources(self, sink: Optional[base.VertexID] = None) -> int:
+        if sink is None:
+            return int(sum(bool(sinks) for sinks in self.forward.values()))
+        else:
+            return len(self.backward.get(sink, ()))
+
+    def count_sinks(self, source: Optional[base.VertexID] = None) -> int:
+        if source is None:
+            return int(sum(bool(sources) for sources in self.backward.values()))
+        else:
+            return len(self.forward.get(source, ()))
 
     def has_vertex(self, vid: base.VertexID) -> bool:
         return vid in self.forward
 
     def has_edge(self, eid: base.EdgeID) -> bool:
-        source, sink = eid
-        return sink in self.forward.get(source, ())
+        return eid.sink in self.forward.get(eid.source, ())
 
     def add_vertex(self, vid: base.VertexID) -> None:
         if vid not in self.forward:
@@ -56,13 +79,12 @@ class MemoryGraphStore(base.GraphStore):
             self.backward[vid] = set()
 
     def add_edge(self, eid: base.EdgeID) -> None:
-        source, sink = eid
-        if sink in self.forward.get(source, ()):
+        if eid.sink in self.forward.get(eid.source, ()):
             return
-        self.add_vertex(source)
-        self.add_vertex(sink)
-        self.forward[source].add(sink)
-        self.backward[sink].add(source)
+        self.add_vertex(eid.source)
+        self.add_vertex(eid.sink)
+        self.forward[eid.source].add(eid.sink)
+        self.backward[eid.sink].add(eid.source)
         self.edge_count += 1
 
     def discard_vertex(self, vid: base.VertexID):
@@ -77,17 +99,15 @@ class MemoryGraphStore(base.GraphStore):
 
         # Remove all incident edges.
         for sink in self.forward[vid]:
-            self.discard_edge((vid, sink), ignore=vid)
+            self.discard_edge(base.EdgeID(vid, sink), ignore=vid)
         for source in self.backward[vid]:
-            self.discard_edge((source, vid), ignore=vid)
+            self.discard_edge(base.EdgeID(source, vid), ignore=vid)
 
         # Remove the vertex itself
         del self.forward[vid]
         del self.backward[vid]
 
     def discard_edge(self, eid: base.EdgeID, ignore: Optional[base.VertexID] = None) -> None:
-        source, sink = eid
-
         # Remove labels and data.
         if eid in self.edge_labels:
             del self.edge_labels[eid]
@@ -95,10 +115,10 @@ class MemoryGraphStore(base.GraphStore):
             del self.edge_data[eid]
 
         # Remove the edge itself
-        if source != ignore:
-            self.forward[source].discard(sink)
-        if sink != ignore:
-            self.backward[sink].discard(source)
+        if eid.source != ignore:
+            self.forward[eid.source].discard(eid.sink)
+        if eid.sink != ignore:
+            self.backward[eid.sink].discard(eid.source)
 
         # Decrement the counter
         self.edge_count -= 1

@@ -1,19 +1,22 @@
-from typing import NewType, Hashable, Any, Optional, Iterator, Tuple
+from typing import NewType, Hashable, Any, Optional, Iterator, NamedTuple
 
-import graph_sanity.graphs as graphs
+
+# This cannot be aliased because the graphs submodule depends on this one.
+import graph_sanity.graphs
+
 
 VertexID = NewType('VertexID', Hashable)
-EdgeID = Tuple[VertexID, VertexID]
+EdgeID = NamedTuple('EdgeId', [('source', VertexID), ('sink', VertexID)])
 Label = NewType('Label', Hashable)
 
 
 class GraphStore:
 
-    def __init__(self, graph: 'graphs.Graph'):
+    def __init__(self, graph: 'graph_sanity.graphs.Graph'):
         self._graph = graph
 
     @property
-    def graph(self) -> 'graphs.Graph':
+    def graph(self) -> 'graph_sanity.graphs.Graph':
         return self._graph
 
     def count_vertices(self) -> int:
@@ -28,16 +31,22 @@ class GraphStore:
     def iter_edges(self) -> Iterator[EdgeID]:
         raise NotImplementedError()
 
-    def iter_sources(self, sink: VertexID) -> Iterator[VertexID]:
+    def has_source(self, sink: VertexID) -> bool:
         raise NotImplementedError()
 
-    def iter_sinks(self, source: VertexID) -> Iterator[VertexID]:
+    def has_sink(self, source: VertexID) -> bool:
         raise NotImplementedError()
 
-    def count_sources(self, sink: VertexID) -> int:
+    def iter_sources(self, sink: Optional[VertexID] = None) -> Iterator[VertexID]:
         raise NotImplementedError()
 
-    def count_sinks(self, source: VertexID) -> int:
+    def iter_sinks(self, source: Optional[VertexID] = None) -> Iterator[VertexID]:
+        raise NotImplementedError()
+
+    def count_sources(self, sink: Optional[VertexID] = None) -> int:
+        raise NotImplementedError()
+
+    def count_sinks(self, source: Optional[VertexID] = None) -> int:
         raise NotImplementedError()
 
     def has_vertex(self, vid: VertexID) -> bool:
