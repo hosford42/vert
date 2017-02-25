@@ -1,7 +1,7 @@
 from . import stores, graphs
 
 from .stores.base import GraphStore, VertexID, EdgeID, Label
-from .graphs import Graph, Vertex, Edge, GraphComponent
+from .graphs import Graph, Vertex, Edge
 
 
 __all__ = [
@@ -14,5 +14,4 @@ __all__ = [
     'Graph',
     'Vertex',
     'Edge',
-    'GraphComponent',
 ]

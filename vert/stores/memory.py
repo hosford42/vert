@@ -3,9 +3,6 @@ from typing import Hashable, Any, Optional, Iterator
 
 import vert.stores.base as base
 
-# This cannot be aliased, because the graphs submodule depends on this one.
-import vert.graphs
-
 
 __all__ = [
     'MemoryGraphStore',
@@ -14,8 +11,7 @@ __all__ = [
 
 class MemoryGraphStore(base.GraphStore):
 
-    def __init__(self, graph: 'vert.graphs.Graph'):
-        super().__init__(graph)
+    def __init__(self):
         self._forward = {}
         self._backward = {}
         self._vertex_labels = {}

@@ -1,10 +1,6 @@
 from typing import NewType, Hashable, Any, Optional, Iterator, NamedTuple, Union
 
 
-# This cannot be aliased because the graphs submodule depends on this one.
-import vert.graphs
-
-
 __all__ = [
     'GraphStore',
     'VertexID',
@@ -18,13 +14,6 @@ Label = NewType('Label', Hashable)
 
 
 class GraphStore:
-
-    def __init__(self, graph: 'vert.graphs.Graph'):
-        self._graph = graph
-
-    @property
-    def graph(self) -> 'vert.graphs.Graph':
-        return self._graph
 
     def count_vertices(self) -> int:
         raise NotImplementedError()

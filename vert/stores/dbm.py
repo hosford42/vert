@@ -7,9 +7,6 @@ from typing import Hashable, Any, Optional, Iterator, Union, MutableMapping, New
 
 import vert.stores.base as base
 
-# This cannot be aliased, because the graphs submodule depends on this one.
-import vert.graphs
-
 
 __all__ = [
     'DBMGraphStore',
@@ -32,10 +29,8 @@ SINKS_INDEX = 3
 
 class DBMGraphStore(base.GraphStore):
 
-    def __init__(self, path: Union[str, MutableMapping[bytes, bytes]], graph: 'vert.graphs.Graph',
-                 v_cache_size: int = 100, e_cache_size: int = 100):
-        super().__init__(graph)
-
+    def __init__(self, path: Union[str, MutableMapping[bytes, bytes]], v_cache_size: int = 100,
+                 e_cache_size: int = 100):
         self._auto_close_db = False
         self._is_open = True
 

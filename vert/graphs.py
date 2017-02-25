@@ -1,13 +1,13 @@
 import collections.abc
 
-from typing import Union, Iterator, Hashable, Any
+from typing import Union, Iterator, Hashable, Any, Optional, MutableMapping
 
 from vert.stores.base import GraphStore, EdgeID, Label, VertexID
 from vert.stores.memory import MemoryGraphStore
+from vert.stores.dbm import DBMGraphStore
 
 
 __all__ = [
-    'GraphComponent',
     'Vertex',
     'Edge',
     'Graph',
@@ -23,13 +23,9 @@ class GraphComponent:
     def __init__(self, graph_store: GraphStore):
         self._graph_store = graph_store
 
-    @property
-    def graph(self) -> 'Graph':
-        return self._graph_store.graph
-
     def _to_vid(self, vertex: VertexOrID) -> VertexID:
         if isinstance(vertex, Vertex):
-            if vertex.graph is not self.graph:
+            if vertex._graph_store is not self._graph_store:
                 raise ValueError(vertex)
             return vertex.vid
         else:
@@ -37,7 +33,7 @@ class GraphComponent:
 
     def _to_eid(self, edge: EdgeOrID) -> EdgeID:
         if isinstance(edge, Edge):
-            if edge.graph is not self.graph:
+            if edge._graph_store is not self._graph_store:
                 raise ValueError(edge)
             return edge.eid
         else:
@@ -542,8 +538,13 @@ class Edge(GraphComponent):
 
 class Graph:
 
-    def __init__(self):
-        self._graph_store = MemoryGraphStore(self)
+    def __init__(self, store: Optional[Union[GraphStore, str, MutableMapping[bytes, bytes]]]=None):
+        if store is None:
+            store = MemoryGraphStore()
+        elif not isinstance(store, GraphStore):
+            store = DBMGraphStore(store)
+        assert isinstance(store, GraphStore)
+        self._graph_store = store
 
     @property
     def vertices(self) -> FullVertexSet:
