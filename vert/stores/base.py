@@ -5,6 +5,13 @@ from typing import NewType, Hashable, Any, Optional, Iterator, NamedTuple, Union
 import vert.graphs
 
 
+__all__ = [
+    'GraphStore',
+    'VertexID',
+    'EdgeID',
+    'Label',
+]
+
 VertexID = NewType('VertexID', Union[int, str, bytes])
 EdgeID = NamedTuple('EdgeId', [('source', VertexID), ('sink', VertexID)])
 Label = NewType('Label', Hashable)

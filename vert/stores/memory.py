@@ -7,6 +7,11 @@ import vert.stores.base as base
 import vert.graphs
 
 
+__all__ = [
+    'MemoryGraphStore',
+]
+
+
 class MemoryGraphStore(base.GraphStore):
 
     def __init__(self, graph: 'vert.graphs.Graph'):
@@ -174,6 +179,7 @@ class MemoryGraphStore(base.GraphStore):
     def get_vertex_data(self, vid: base.VertexID, key: Hashable) -> Any:
         if vid in self._vertex_data:
             return self._vertex_data[vid].get(key, None)
+        return None
 
     def set_vertex_data(self, vid: base.VertexID, key: Hashable, value: Any) -> None:
         self.add_vertex(vid)
@@ -205,6 +211,7 @@ class MemoryGraphStore(base.GraphStore):
     def get_edge_data(self, eid: base.EdgeID, key: Hashable) -> Any:
         if eid in self._edge_data:
             return self._edge_data[eid].get(key, None)
+        return None
 
     def set_edge_data(self, eid: base.EdgeID, key: Hashable, value: Any) -> None:
         self.add_edge(eid)

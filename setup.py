@@ -8,5 +8,5 @@ setup(
     license='MIT',
     author='Aaron Hosford',
     author_email='hosford42@gmail.com',
-    description='Sane interface for graphs'
+    description='Graph interface for Python',
 )

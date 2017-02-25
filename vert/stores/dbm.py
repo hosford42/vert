@@ -1,7 +1,8 @@
 import ast
 import dbm
 import json
-from typing import Hashable, Any, Optional, Iterator, Union, MutableMapping
+import time
+from typing import Hashable, Any, Optional, Iterator, Union, MutableMapping, NewType
 
 
 import vert.stores.base as base
@@ -9,6 +10,14 @@ import vert.stores.base as base
 # This cannot be aliased, because the graphs submodule depends on this one.
 import vert.graphs
 
+
+__all__ = [
+    'DBMGraphStore',
+]
+
+
+VertexData = NewType('VertexData', list)
+EdgeData = NewType('EdgeData', list)
 
 VERTEX_COUNT_KEY = b'cv'
 EDGE_COUNT_KEY = b'ce'
@@ -20,31 +29,65 @@ DATA_INDEX = 1
 SOURCES_INDEX = 2
 SINKS_INDEX = 3
 
-# VertexData = NamedTuple(
-#     'VertexData',
-#     [
-#         ('forward', List[base.VertexID]),
-#         ('backward', List[base.VertexID]),
-#         ('labels', List[base.Label]),
-#         ('data', )])
-# EdgeData = NamedTuple('EdgeData', [('source',), ('sink',), ('labels',), ('data',)])
-
 
 class DBMGraphStore(base.GraphStore):
 
-    def __init__(self, path: Union[str, MutableMapping[bytes, bytes]], graph: 'vert.graphs.Graph'):
+    def __init__(self, path: Union[str, MutableMapping[bytes, bytes]], graph: 'vert.graphs.Graph',
+                 v_cache_size: int = 100, e_cache_size: int = 100):
         super().__init__(graph)
+
+        self._auto_close_db = False
+        self._is_open = True
+
+        self._v_cache_size = v_cache_size
+        self._v_cache = {}
+        self._v_cache_times = {}
+        self._v_cache_dirty = set()
+
+        self._e_cache_size = e_cache_size
+        self._e_cache = {}
+        self._e_cache_times = {}
+        self._e_cache_dirty = set()
+
         if isinstance(path, str):
-            self._close_db = True
-            self._db = dbm.open(path, 'rw')
+            self._auto_close_db = True
+            self._db = dbm.open(path, mode='c')
         else:
-            self._close_db = False
             self._db = path
 
-    def __del__(self):
-        if self._close_db:
+    def __del__(self) -> None:
+        self.close()
+
+    def close(self):
+        if not self._is_open:
+            return
+        self.flush()
+        if self._auto_close_db:
             # noinspection PyUnresolvedReferences
             self._db.close()
+        self._is_open = False
+
+    @property
+    def vertex_cache_size(self) -> int:
+        return self._v_cache_size
+
+    @vertex_cache_size.setter
+    def vertex_cache_size(self, value: int) -> None:
+        assert value >= 0
+        self._v_cache_size = value
+        while len(self._v_cache) > self._v_cache_size:
+            self._retire_vertex()
+
+    @property
+    def edge_cache_size(self) -> int:
+        return self._e_cache_size
+
+    @edge_cache_size.setter
+    def edge_cache_size(self, value: int) -> None:
+        assert value >= 0
+        self._e_cache_size = value
+        while len(self._e_cache) > self._e_cache_size:
+            self._retire_vertex()
 
     @staticmethod
     def _encode_key(key: Any, prefix: bytes) -> bytes:
@@ -55,14 +98,112 @@ class DBMGraphStore(base.GraphStore):
         assert encoded_key.startswith(prefix)
         return ast.literal_eval(encoded_key[len(prefix):].decode())
 
-    def _read_data(self, key, prefix):
+    def _immediate_read_data(self, key: Any, prefix: bytes) -> Any:
+        assert self._is_open
         return json.loads(self._db[self._encode_key(key, prefix)].decode())
 
-    def _write_data(self, key, prefix, data):
+    def _immediate_write_data(self, key: Any, prefix: bytes, data: Any) -> None:
+        assert self._is_open
         self._db[self._encode_key(key, prefix)] = json.dumps(data).encode()
 
-    def _del_data(self, key, prefix):
+    def _immediate_del_data(self, key: Any, prefix: bytes) -> None:
+        assert self._is_open
         del self._db[self._encode_key(key, prefix)]
+
+    def _retire_vertex(self, vid: Optional[base.VertexID] = None) -> None:
+        if vid is None:
+            vid = min(self._v_cache_times, key=self._v_cache_times.get)
+        data = self._v_cache.pop(vid)
+        if vid in self._v_cache_dirty:
+            self._immediate_write_data(vid, VID_PREFIX, data)
+            self._v_cache_dirty.remove(vid)
+        del self._v_cache_times[vid]
+
+    def _retire_edge(self, eid: Optional[base.EdgeID] = None) -> None:
+        if eid is None:
+            eid = min(self._e_cache_times, key=self._e_cache_times.get)
+        data = self._e_cache.pop(eid)
+        if eid in self._e_cache_dirty:
+            self._immediate_write_data(eid, EID_PREFIX, data)
+            self._e_cache_dirty.remove(eid)
+        del self._e_cache_times[eid]
+
+    def _read_vertex(self, vid: base.VertexID) -> VertexData:
+        assert self._is_open
+        if not self._v_cache_size:
+            return self._immediate_read_data(vid, VID_PREFIX)
+
+        self._v_cache_times[vid] = time.time()
+        if vid in self._v_cache:
+            return self._v_cache[vid]
+        data = self._immediate_read_data(vid, VID_PREFIX)
+        self._v_cache[vid] = data
+        if len(self._v_cache) > self._v_cache_size:
+            self._retire_vertex()
+        return data
+
+    def _write_vertex(self, vid: base.VertexID, data: VertexData):
+        assert self._is_open
+        if not self._v_cache_size:
+            self._immediate_write_data(vid, EID_PREFIX, data)
+            return
+
+        self._v_cache_times[vid] = time.time()
+        self._v_cache_dirty.add(vid)
+        if self._v_cache.get(vid, None) is data:
+            return  # Nothing to do.
+        self._v_cache[vid] = data
+        if len(self._v_cache) > self._v_cache_size:
+            self._retire_vertex()
+
+    def _del_vertex(self, vid: base.VertexID):
+        assert self._is_open
+        # No caching for deletions; it doesn't make sense to, since nothing will be accessing it again.
+        del self._v_cache[vid]
+        del self._v_cache_times[vid]
+        self._v_cache_dirty.discard(vid)
+        self._immediate_del_data(vid, VID_PREFIX)
+
+    def _read_edge(self, eid: base.EdgeID) -> EdgeData:
+        assert self._is_open
+        if not self._e_cache_size:
+            return self._immediate_read_data(eid, EID_PREFIX)
+
+        self._e_cache_times[eid] = time.time()
+        if eid in self._e_cache:
+            return self._e_cache[eid]
+        data = self._immediate_read_data(eid, EID_PREFIX)
+        self._e_cache[eid] = data
+        if len(self._e_cache) > self._e_cache_size:
+            self._retire_vertex()
+
+    def _write_edge(self, eid: base.EdgeID, data: EdgeData) -> None:
+        assert self._is_open
+        if not self._e_cache_size:
+            self._immediate_write_data(eid, EID_PREFIX, data)
+            return
+
+        self._e_cache_times[eid] = time.time()
+        self._e_cache_dirty.add(eid)
+        if self._e_cache.get(eid, None) is data:
+            return   # Nothing to do.
+        self._e_cache[eid] = data
+        if len(self._e_cache) > self._e_cache_size:
+            self._retire_edge()
+
+    def _del_edge(self, eid: base.EdgeID) -> None:
+        assert self._is_open
+        # No caching for deletions; it doesn't make sense to, since nothing will be accessing it again.
+        del self._e_cache[eid]
+        del self._e_cache_times[eid]
+        self._e_cache_dirty.discard(eid)
+        self._immediate_del_data(eid, EID_PREFIX)
+
+    def flush(self):
+        for vid in sorted(self._v_cache_times, key=self._v_cache_times.get):
+            self._retire_vertex(vid)
+        for eid in sorted(self._e_cache_times, key=self._e_cache_times.get):
+            self._retire_edge(eid)
 
     def count_vertices(self) -> int:
         return int(self._db[VERTEX_COUNT_KEY].decode())
@@ -82,35 +223,35 @@ class DBMGraphStore(base.GraphStore):
 
     def has_source(self, sink: base.VertexID) -> bool:
         try:
-            return bool(self._read_data(sink, VID_PREFIX)[SOURCES_INDEX])
+            return bool(self._retire_vertex(sink)[SOURCES_INDEX])
         except KeyError:
             return False
 
     def has_sink(self, source: base.VertexID) -> bool:
         try:
-            return bool(self._read_data(source, VID_PREFIX)[SINKS_INDEX])
+            return bool(self._read_vertex(source)[SINKS_INDEX])
         except KeyError:
             return False
 
     def iter_sources(self, sink: Optional[base.VertexID] = None) -> Iterator[base.VertexID]:
         if sink is None:
             for key in self.iter_vertices():
-                if self._read_data(key, VID_PREFIX)[SINKS_INDEX]:
+                if self._read_vertex(key)[SINKS_INDEX]:
                     yield key
         else:
             try:
-                yield from self._read_data(sink, VID_PREFIX)[SOURCES_INDEX]
+                yield from self._read_vertex(sink)[SOURCES_INDEX]
             except KeyError:
                 pass
 
     def iter_sinks(self, source: Optional[base.VertexID] = None) -> Iterator[base.VertexID]:
         if source is None:
             for key in self.iter_vertices():
-                if self._read_data(key, VID_PREFIX)[SOURCES_INDEX]:
+                if self._read_vertex(key)[SOURCES_INDEX]:
                     yield key
         else:
             try:
-                yield from self._read_data(source, VID_PREFIX)[SINKS_INDEX]
+                yield from self._read_vertex(source)[SINKS_INDEX]
             except KeyError:
                 pass
 
@@ -118,12 +259,12 @@ class DBMGraphStore(base.GraphStore):
         if sink is None:
             count = 0
             for key in self.iter_vertices():
-                if self._read_data(key, VID_PREFIX)[SINKS_INDEX]:
+                if self._read_vertex(key)[SINKS_INDEX]:
                     count += 1
             return count
         else:
             try:
-                return len(self._read_data(sink, VID_PREFIX)[SOURCES_INDEX])
+                return len(self._read_vertex(sink)[SOURCES_INDEX])
             except KeyError:
                 pass
 
@@ -131,12 +272,12 @@ class DBMGraphStore(base.GraphStore):
         if source is None:
             count = 0
             for key in self.iter_vertices():
-                if self._read_data(key, VID_PREFIX)[SOURCES_INDEX]:
+                if self._read_vertex(key)[SOURCES_INDEX]:
                     count += 1
             return count
         else:
             try:
-                return len(self._read_data(source, VID_PREFIX)[SINKS_INDEX])
+                return len(self._read_vertex(source)[SINKS_INDEX])
             except KeyError:
                 pass
 
@@ -154,7 +295,7 @@ class DBMGraphStore(base.GraphStore):
                 [],  # Sources
                 [],  # Sinks
             ]
-            self._write_data(vid, VID_PREFIX, data)
+            self._write_vertex(vid, data)
             self._db[VERTEX_COUNT_KEY] += 1
 
     def add_edge(self, eid: base.EdgeID) -> None:
@@ -165,147 +306,178 @@ class DBMGraphStore(base.GraphStore):
                 [],  # Labels,
                 {},  # Data
             ]
-            self._write_data(eid, EID_PREFIX, data)
+            self._write_edge(eid, data)
             self._db[EDGE_COUNT_KEY] += 1
 
     def discard_vertex(self, vid: base.VertexID):
         if self.has_vertex(vid):
-            _, _, sources, sinks = self._read_data(vid, VID_PREFIX)
+            _, _, sources, sinks = self._read_vertex(vid)
 
             for source in sources:
                 self.discard_edge(base.EdgeID(source, vid), ignore=vid)
             for sink in sinks:
                 self.discard_edge(base.EdgeID(vid, sink), ignore=vid)
 
-            self._del_data(vid, VID_PREFIX)
+            self._del_vertex(vid)
             self._db[VERTEX_COUNT_KEY] -= 1
 
     def discard_edge(self, eid: base.EdgeID, ignore: Optional[base.VertexID] = None) -> None:
         if self.has_edge(eid):
             if eid.source != ignore:
-                source_data = self._read_data(eid.source, VID_PREFIX)
+                source_data = self._read_vertex(eid.source)
                 source_data[SINKS_INDEX].remove(eid.sink)
-                self._write_data(eid.source, VID_PREFIX, source_data)
+                self._write_vertex(eid.source, source_data)
 
             if eid.sink != ignore:
-                sink_data = self._read_data(eid.sink, VID_PREFIX)
+                sink_data = self._read_vertex(eid.sink)
                 sink_data[SOURCES_INDEX].remove(eid.source)
-                self._write_data(eid.sink, VID_PREFIX, sink_data)
+                self._write_vertex(eid.sink, sink_data)
 
-            self._del_data(eid, EID_PREFIX)
+            self._del_edge(eid)
             self._db[EDGE_COUNT_KEY] -= 1
 
     def add_vertex_label(self, vid: base.VertexID, label: base.Label) -> None:
         self.add_vertex(vid)
-        data = self._read_data(vid, VID_PREFIX)
+        data = self._read_vertex(vid)
         if label not in data[LABEL_INDEX]:
             data[LABEL_INDEX].append(label)
-            self._write_data(vid, VID_PREFIX, data)
+            self._write_vertex(vid, data)
 
     def has_vertex_label(self, vid: base.VertexID, label: base.Label) -> bool:
         try:
-            return label in self._read_data(vid, VID_PREFIX)[LABEL_INDEX]
+            return label in self._read_vertex(vid)[LABEL_INDEX]
         except KeyError:
             return False
 
     def discard_vertex_label(self, vid: base.VertexID, label: base.Label) -> None:
         try:
-            data = self._read_data(vid, VID_PREFIX)
+            data = self._read_vertex(vid)
         except KeyError:
             return  # Nothing to do
         if label in data[LABEL_INDEX]:
             data[LABEL_INDEX].remove(label)
-            self._write_data(vid, VID_PREFIX, data)
+            self._write_vertex(vid, data)
 
     def iter_vertex_labels(self, vid: base.VertexID) -> Iterator[base.Label]:
-
-        return iter(self._vertex_labels.get(vid, ()))
+        try:
+            return iter(self._read_vertex(vid)[LABEL_INDEX])
+        except KeyError:
+            return iter(())
 
     def count_vertex_labels(self, vid: base.VertexID) -> int:
-        return len(self._vertex_labels.get(vid, ()))
+        try:
+            return len(self._read_vertex(vid)[LABEL_INDEX])
+        except KeyError:
+            return 0
 
     def add_edge_label(self, eid: base.EdgeID, label: base.Label) -> None:
         self.add_edge(eid)
-        if eid in self._edge_labels:
-            self._edge_labels[eid].add(label)
-        else:
-            self._edge_labels[eid] = {label}
+        data = self._read_edge(eid)
+        if label not in data[LABEL_INDEX]:
+            data[LABEL_INDEX].append(label)
+            self._write_edge(eid, data)
 
     def has_edge_label(self, eid: base.EdgeID, label: base.Label) -> bool:
-        return label in self._edge_labels.get(eid, ())
+        try:
+            return label in self._read_edge(eid)[LABEL_INDEX]
+        except KeyError:
+            return False
 
     def discard_edge_label(self, eid: base.EdgeID, label: base.Label) -> None:
-        labels = self._edge_labels.get(eid, None)
-        if labels is None:
-            return
-        labels.discard(label)
-        if not labels:
-            del self._edge_labels[eid]
+        try:
+            data = self._read_edge(eid)
+        except KeyError:
+            return  # Nothing to do
+        if label in data[LABEL_INDEX]:
+            data[LABEL_INDEX].remove(label)
+            self._write_edge(eid, data)
 
     def iter_edge_labels(self, eid: base.EdgeID) -> Iterator[base.Label]:
-        return iter(self._edge_labels.get(eid, ()))
+        try:
+            return iter(self._read_edge(eid)[LABEL_INDEX])
+        except KeyError:
+            return iter(())
 
     def count_edge_labels(self, eid: base.EdgeID) -> int:
-        return len(self._edge_labels.get(eid, ()))
+        try:
+            return len(self._read_edge(eid)[LABEL_INDEX])
+        except KeyError:
+            return 0
 
     def get_vertex_data(self, vid: base.VertexID, key: Hashable) -> Any:
-        if vid in self._vertex_data:
-            return self._vertex_data[vid].get(key, None)
+        try:
+            return self._read_vertex(vid)[DATA_INDEX].get(key, None)
+        except KeyError:
+            return None
 
     def set_vertex_data(self, vid: base.VertexID, key: Hashable, value: Any) -> None:
         self.add_vertex(vid)
-        if vid in self._vertex_data:
-            data = self._vertex_data[vid]
-        else:
-            data = {}
-            self._vertex_data[vid] = data
-        data[key] = value
+        data = self._read_vertex(vid)
+        data[DATA_INDEX][key] = value
+        self._write_vertex(vid, data)
 
     def has_vertex_data(self, vid: base.VertexID, key: Hashable) -> bool:
-        return key in self._vertex_data.get(vid, ())
+        try:
+            return key in self._read_vertex(vid)[DATA_INDEX]
+        except KeyError:
+            return False
 
     def discard_vertex_data(self, vid: base.VertexID, key: Hashable) -> None:
-        data = self._vertex_data.get(vid, None)
-        if data is None:
-            return
-        if key in data:
-            del data[key]
-        if not data:
-            del self._vertex_data[vid]
+        try:
+            data = self._read_vertex(vid)
+            del data[DATA_INDEX][key]
+        except KeyError:
+            return  # Nothing to do
+        else:
+            self._write_vertex(vid, data)
 
     def iter_vertex_data_keys(self, vid: base.VertexID) -> Iterator[Hashable]:
-        return iter(self._vertex_data.get(vid, ()))
+        try:
+            return iter(self._read_vertex(vid)[DATA_INDEX])
+        except KeyError:
+            return iter(())
 
     def count_vertex_data_keys(self, vid: base.VertexID) -> int:
-        return len(self._vertex_data.get(vid, ()))
+        try:
+            return len(self._read_vertex(vid)[DATA_INDEX])
+        except KeyError:
+            return 0
 
     def get_edge_data(self, eid: base.EdgeID, key: Hashable) -> Any:
-        if eid in self._edge_data:
-            return self._edge_data[eid].get(key, None)
+        try:
+            return self._read_edge(eid)[DATA_INDEX][key]
+        except KeyError:
+            return None
 
     def set_edge_data(self, eid: base.EdgeID, key: Hashable, value: Any) -> None:
         self.add_edge(eid)
-        if eid in self._edge_data:
-            data = self._edge_data[eid]
-        else:
-            data = {}
-            self._edge_data[eid] = data
-        data[key] = value
+        data = self._read_edge(eid)
+        data[DATA_INDEX][key] = value
+        self._write_edge(eid, data)
 
     def has_edge_data(self, eid: base.EdgeID, key: Hashable) -> bool:
-        return key in self._edge_data.get(key, ())
+        try:
+            return key in self._read_edge(eid)[DATA_INDEX]
+        except KeyError:
+            return False
 
     def discard_edge_data(self, eid: base.EdgeID, key: Hashable) -> None:
-        data = self._edge_data.get(eid, None)
-        if data is None:
+        try:
+            data = self._read_edge(eid)
+            del data[DATA_INDEX][key]
+        except KeyError:
             return
-        if key in data:
-            del data[key]
-        if not data:
-            del self._edge_data[eid]
+        else:
+            self._write_edge(eid, data)
 
     def iter_edge_data_keys(self, eid: base.EdgeID) -> Iterator[Hashable]:
-        return iter(self._edge_data.get(eid, ()))
+        try:
+            return iter(self._read_edge(eid)[DATA_INDEX])
+        except KeyError:
+            return iter(())
 
     def count_edge_data_keys(self, eid: base.EdgeID) -> int:
-        return len(self._edge_data.get(eid, ()))
+        try:
+            return len(self._read_edge(eid)[DATA_INDEX])
+        except KeyError:
+            return 0

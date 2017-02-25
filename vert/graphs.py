@@ -6,6 +6,14 @@ from vert.stores.base import GraphStore, EdgeID, Label, VertexID
 from vert.stores.memory import MemoryGraphStore
 
 
+__all__ = [
+    'GraphComponent',
+    'Vertex',
+    'Edge',
+    'Graph',
+]
+
+
 VertexOrID = Union[VertexID, 'Vertex']
 EdgeOrID = Union[EdgeID, 'Edge']
 
