@@ -219,7 +219,7 @@ class MemoryGraphStore(base.GraphStore):
         data[key] = value
 
     def has_edge_data(self, eid: base.EdgeID, key: Hashable) -> bool:
-        return key in self._edge_data.get(key, ())
+        return key in self._edge_data.get(eid, ())
 
     def discard_edge_data(self, eid: base.EdgeID, key: Hashable) -> None:
         data = self._edge_data.get(eid, None)

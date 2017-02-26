@@ -36,8 +36,10 @@ class GraphComponent:
             if edge._graph_store is not self._graph_store:
                 raise ValueError(edge)
             return edge.eid
-        else:
+        elif isinstance(edge, EdgeID):
             return edge
+        else:
+            return EdgeID(*edge)
 
 
 class FullVertexSet(collections.abc.MutableSet, GraphComponent):
@@ -420,6 +422,12 @@ class Vertex(GraphComponent):
         super().__init__(graph_store)
         self._vid = vid
 
+    def __str__(self):
+        return repr(self._vid)
+
+    def __repr__(self):
+        return '%s(%r, %r)' % (type(self).__name__, self._vid, self._graph_store)
+
     def __hash__(self):
         return hash(self._vid)
 
@@ -482,7 +490,17 @@ class Edge(GraphComponent):
 
     def __init__(self, eid: EdgeID, graph_store: GraphStore):
         super().__init__(graph_store)
+        if not isinstance(eid, EdgeID):
+            eid = EdgeID(*eid)
         self._eid = eid
+
+    # TODO: The string representations for Edges and Vertices are ugly.
+
+    def __str__(self):
+        return repr(self._eid)
+
+    def __repr__(self):
+        return '%s(%r, %r)' % (type(self).__name__, self._eid, self._graph_store)
 
     def __hash__(self):
         return hash(self._eid)
