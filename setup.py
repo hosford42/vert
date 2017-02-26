@@ -39,6 +39,10 @@ setup(
     name='vert',
     version='0.0',
     packages=find_packages(),
+    package_data={
+        '': ['*.txt', '*.md', '*.rst']
+    },
+    include_package_data=True,
     url='https://pypi.python.org/pypi/vert',
     license='MIT',
     author='Aaron Hosford',
