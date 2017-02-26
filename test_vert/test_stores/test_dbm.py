@@ -1,6 +1,8 @@
 import os
+import unittest
 
 from vert.stores.dbm import DBMGraphStore
+from vert import Graph
 
 # noinspection PyProtectedMember
 import test_vert.test_stores._base as _base
@@ -77,3 +79,54 @@ class TestDBMGraphStoreNoCache(_base.TestGraphStore):
         path = getattr(self, 'path', None)
         if path and os.path.isfile(path):
             os.remove(path)
+
+
+class TestDBMGraphStorePersistence(unittest.TestCase):
+
+    def setUp(self):
+        self.path = 'test3.db'
+
+    def testPersistence(self):
+        with Graph(self.path) as graph:
+            self.assert_(graph.is_open)
+            self.assert_(not graph.edges[1, 2])
+            self.assert_(not graph.edges[2, 3])
+            self.assert_(not graph.edges[1, 3])
+            self.assert_(not graph.edges[3, 4])
+            graph.edges[1, 2].add()
+            graph.edges[2, 3].add()
+            graph.edges[1, 3].add()
+            graph.edges[3, 4].add()
+            self.assert_(graph.edges[1, 2])
+            self.assert_(graph.edges[2, 3])
+            self.assert_(graph.edges[1, 3])
+            self.assert_(graph.edges[3, 4])
+        self.assert_(not graph.is_open)
+
+        with Graph(self.path) as graph:
+            self.assert_(graph.is_open)
+            self.assert_(graph.edges[1, 2])
+            self.assert_(graph.edges[2, 3])
+            self.assert_(graph.edges[1, 3])
+            self.assert_(graph.edges[3, 4])
+            graph.edges[3, 4].remove()
+            self.assert_(graph.edges[1, 2])
+            self.assert_(graph.edges[2, 3])
+            self.assert_(graph.edges[1, 3])
+            self.assert_(not graph.edges[3, 4])
+        self.assert_(not graph.is_open)
+
+        with Graph(self.path) as graph:
+            self.assert_(graph.is_open)
+            self.assert_(graph.edges[1, 2])
+            self.assert_(graph.edges[2, 3])
+            self.assert_(graph.edges[1, 3])
+            self.assert_(not graph.edges[3, 4])
+            self.assertEqual(len(graph.vertices), 4)
+            self.assertEqual(len(graph.edges), 3)
+
+        self.assert_(not graph.is_open)
+
+    def tearDown(self):
+        if os.path.isfile(self.path):
+            os.remove(self.path)
