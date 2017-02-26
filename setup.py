@@ -37,7 +37,7 @@ def get_long_description():
 
 setup(
     name='vert',
-    version='0.0',
+    version='0.0.1',
     packages=find_packages(),
     package_data={
         '': ['*.txt', '*.md', '*.rst']
