@@ -86,8 +86,8 @@ license. See LICENSE.txt for the full license agreement.
 
 ## TODO:
 
-* Add separately installable graph stores for neo4j, tinkerpop, networkx, and 
-  other back ends.
+* Add separately installable graph stores for neo4j, tinkerpop, networkx, 
+  sqlite, and other back ends.
 * Add an example for creating a third-party module to provide support for
   new kinds of graph stores.
 * Add algorithms such as path finding and pattern matching. Whenever possible,
@@ -106,3 +106,4 @@ license. See LICENSE.txt for the full license agreement.
 * Make the DBM graph store more efficient.
 * Add proper documentation strings.
 * Add an intro to the README file.
+* Support older versions of Python.
