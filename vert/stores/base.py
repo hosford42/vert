@@ -15,6 +15,20 @@ Label = NewType('Label', Hashable)
 
 class GraphStore:
 
+    @property
+    def is_open(self) -> bool:
+        return True  # By default, always open
+
+    def close(self) -> None:
+        pass  # By default, a no-op
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
+
     def count_vertices(self) -> int:
         raise NotImplementedError()
 

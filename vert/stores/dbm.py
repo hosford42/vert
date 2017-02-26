@@ -55,9 +55,16 @@ class DBMGraphStore(base.GraphStore):
             self._db = dbm.open(path, flag='c')
         else:
             self._db = path
+            if hasattr(self._db, 'is_open'):
+                # noinspection PyUnresolvedReferences
+                self._is_open = self._db.is_open
 
     def __del__(self) -> None:
         self.close()
+
+    @property
+    def is_open(self) -> bool:
+        return self._is_open
 
     def close(self):
         if not self._is_open:
@@ -245,6 +252,9 @@ class DBMGraphStore(base.GraphStore):
         if self._e_count_dirty:
             self._immediate_write_data(EID_PREFIX, COUNT_PREFIX, self._e_count)
             self._e_count_dirty = False
+        if hasattr(self._db, 'sync'):
+            # noinspection PyUnresolvedReferences
+            self._db.sync()
 
     def count_vertices(self) -> int:
         if self._v_count is None:

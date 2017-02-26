@@ -441,6 +441,9 @@ class Vertex(GraphComponent):
             return NotImplemented
         return self._vid != other._vid or self._graph_store is not other._graph_store
 
+    def __bool__(self) -> bool:
+        return self._graph_store.has_vertex(self._vid)
+
     @property
     def vid(self) -> VertexID:
         return self._vid
@@ -513,6 +516,9 @@ class Edge(GraphComponent):
             return NotImplemented
         return self._eid != other._eid or self._graph_store is not other._graph_store
 
+    def __bool__(self) -> bool:
+        return self._graph_store.has_edge(self._eid)
+
     @property
     def eid(self) -> EdgeID:
         return self._eid
@@ -561,6 +567,23 @@ class Graph:
             store = DBMGraphStore(store)
         assert isinstance(store, GraphStore)
         self._graph_store = store
+
+    def __del__(self):
+        self.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
+
+    @property
+    def is_open(self):
+        return self._graph_store.is_open
+
+    def close(self):
+        self._graph_store.close()
 
     @property
     def vertices(self) -> FullVertexSet:
