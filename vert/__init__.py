@@ -1,3 +1,6 @@
+# Copyright 2017 Aaron M. Hosford
+# See LICENSE.txt for licensing information.
+
 from . import stores, graphs
 
 from .stores.base import GraphStore, VertexID, EdgeID, Label

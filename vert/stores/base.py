@@ -1,3 +1,6 @@
+# Copyright 2017 Aaron M. Hosford
+# See LICENSE.txt for licensing information.
+
 from typing import NewType, Hashable, Any, Optional, Iterator, NamedTuple, Union
 
 
