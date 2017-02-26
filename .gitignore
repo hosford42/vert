@@ -1,4 +1,6 @@
 test*.db
+*.deb
+README.rst
 .idea/
 __pycache__/
 *.py[cod]
