@@ -13,3 +13,4 @@
 * Add transactions and make the code thread-safe.
 * Add support for reading & writing common graph file formats.
 * 100% code coverage for unit testing.
+* Prettify the string representations for Edges and Vertices.

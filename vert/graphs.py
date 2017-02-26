@@ -494,8 +494,6 @@ class Edge(GraphComponent):
             eid = EdgeID(*eid)
         self._eid = eid
 
-    # TODO: The string representations for Edges and Vertices are ugly.
-
     def __str__(self):
         return repr(self._eid)
 
