@@ -86,6 +86,7 @@ license. See LICENSE.txt for the full license agreement.
 
 ## TODO:
 
+* Support undirected edges.
 * Add separately installable graph stores for neo4j, tinkerpop, networkx, 
   sqlite, and other back ends.
 * Add an example for creating a third-party module to provide support for
