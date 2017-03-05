@@ -15,6 +15,9 @@ __all__ = [
 
 
 class MemoryGraphStore(base.GraphStore):
+    """
+    A Python-only, non-persistent graph store designed for sparse graphs.
+    """
 
     def __init__(self):
         self._forward = {}

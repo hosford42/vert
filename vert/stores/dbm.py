@@ -32,6 +32,10 @@ SINKS_INDEX = 3
 
 
 class DBMGraphStore(base.GraphStore):
+    """
+    A Python-only persistent graph store based on the built-in dbm module, with optional memory-level caching for
+    performance gains at the expense of robustness to incorrect shutdowns.
+    """
 
     def __init__(self, path: Union[str, MutableMapping[bytes, bytes]], v_cache_size: int = 100,
                  e_cache_size: int = 100):
