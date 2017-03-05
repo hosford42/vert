@@ -24,11 +24,20 @@ EdgeOrID = Union[EdgeID, 'Edge']
 
 
 class GraphComponent:
+    """
+    Base class for graph interface components.
+    """
 
     def __init__(self, graph_store: GraphStore):
         self._graph_store = graph_store
 
     def _to_vid(self, vertex: VertexOrID) -> VertexID:
+        """
+        Convert a vertex or vertex ID to a vertex ID, ensuring that if it's a vertex, it belongs to the correct graph.
+
+        :param vertex: The vertex or vertex ID to be converted.
+        :return: The vertex ID.
+        """
         if isinstance(vertex, Vertex):
             if vertex._graph_store is not self._graph_store:
                 raise ValueError(vertex)
@@ -37,6 +46,13 @@ class GraphComponent:
             return vertex
 
     def _to_eid(self, edge: EdgeOrID) -> EdgeID:
+        """
+        Convert an edge or edge ID to an edge ID, ensuring that if it's an edge, it belongs to the correct graph. Also,
+        ensure that the edge ID is expressed as an EdgeID named tuple, not just an ordinary tuple.
+
+        :param edge: The edge or edge ID to be converted.
+        :return: The edge ID.
+        """
         if isinstance(edge, Edge):
             if edge._graph_store is not self._graph_store:
                 raise ValueError(edge)
@@ -48,6 +64,9 @@ class GraphComponent:
 
 
 class FullVertexSet(collections.abc.MutableSet, GraphComponent):
+    """
+    The complete set of every vertex belonging to the graph.
+    """
 
     def __contains__(self, vertex: VertexOrID) -> bool:
         vid = self._to_vid(vertex)
@@ -64,6 +83,12 @@ class FullVertexSet(collections.abc.MutableSet, GraphComponent):
         return Vertex(vid, self._graph_store)
 
     def add(self, vertex: VertexOrID) -> 'Vertex':
+        """
+        Add a vertex to the graph. If the vertex already belongs to the graph, do nothing. Equivalent to vertex.add().
+
+        :param vertex: The vertex or vertex ID to add to the graph.
+        :return: The newly added Vertex instance.
+        """
         vid = self._to_vid(vertex)
         self._graph_store.add_vertex(vid)
         if isinstance(vertex, Vertex):
@@ -72,17 +97,34 @@ class FullVertexSet(collections.abc.MutableSet, GraphComponent):
             return Vertex(vid, self._graph_store)
 
     def remove(self, vertex: VertexOrID) -> None:
+        """
+        Remove a vertex from the graph. If the vertex already does not belong to the graph, raise an exception. All
+        incident edges to the vertex are also removed. Equivalent to vertex.remove().
+
+        :param vertex: The vertex or vertex ID to remove from the graph.
+        :return: None
+        """
         vid = self._to_vid(vertex)
         if not self._graph_store.has_vertex(vid):
             raise KeyError(vid)
         self._graph_store.discard_vertex(vid)
 
     def discard(self, vertex: VertexOrID) -> None:
+        """
+        Remove a vertex from the graph. If the vertex already does not belong to the graph, do nothing. All incident
+        edges to the vertex are also removed.Equivalent to vertex.discard().
+
+        :param vertex: The vertex or vertex ID to remove from the graph.
+        :return: None
+        """
         vid = self._to_vid(vertex)
         self._graph_store.discard_vertex(vid)
 
 
 class FullSourceVertexSet(collections.abc.Set, GraphComponent):
+    """
+    The set containing every vertex in the graph which is the source for some edge.
+    """
 
     def __contains__(self, vertex: VertexOrID) -> bool:
         vid = self._to_vid(vertex)
@@ -97,6 +139,9 @@ class FullSourceVertexSet(collections.abc.Set, GraphComponent):
 
 
 class FullSinkVertexSet(collections.abc.Set, GraphComponent):
+    """
+    The set containing every vertex in the graph which is the sink for some edge.
+    """
 
     def __contains__(self, vertex: VertexOrID) -> bool:
         vid = self._to_vid(vertex)
@@ -111,13 +156,18 @@ class FullSinkVertexSet(collections.abc.Set, GraphComponent):
 
 
 class FullEdgeSet(collections.abc.MutableSet, GraphComponent):
+    """
+    The complete set of every edge belonging to the graph.
+    """
 
     @property
     def sources(self):
+        """The set of source vertices for this set of edges."""
         return FullSourceVertexSet(self._graph_store)
 
     @property
     def sinks(self):
+        """The set of sink vertices for this set of edges."""
         return FullSinkVertexSet(self._graph_store)
 
     def __contains__(self, edge: EdgeOrID) -> bool:
@@ -135,22 +185,46 @@ class FullEdgeSet(collections.abc.MutableSet, GraphComponent):
         return Edge(eid, self._graph_store)
 
     def add(self, edge: EdgeOrID) -> 'Edge':
+        """
+        Add an edge to the graph. If the edge already belongs to the graph, do nothing. If either the source or sink
+        vertex does not exist, add it. Equivalent to edge.add()
+
+        :param edge: The edge or edge ID to add to the graph.
+        :return: The newly added Edge instance.
+        """
         eid = self._to_eid(edge)
         self._graph_store.add_edge(eid)
         return Edge(eid, self._graph_store)
 
     def remove(self, edge: EdgeOrID) -> None:
+        """
+        Remove an edge from the graph. If the edge already does not belong to the graph, raise an exception. The source
+        and sink vertices are not removed. Equivalent to edge.remove().
+
+        :param edge: The edge or edge ID to remove from the graph.
+        :return: None
+        """
         eid = self._to_eid(edge)
         if not self._graph_store.has_edge(eid):
             raise KeyError(eid)
         self._graph_store.discard_edge(eid)
 
     def discard(self, edge: EdgeOrID) -> None:
+        """
+        Remove an edge from the graph. If the edge already does not belong to the graph, do nothing. The source and sink
+        vertices are not removed. Equivalent to edge.remove().
+
+        :param edge: The edge or edge ID to remove from the graph.
+        :return: None
+        """
         eid = self._to_eid(edge)
         self._graph_store.discard_edge(eid)
 
 
 class UniqueVertexSet(collections.abc.Set, GraphComponent):
+    """
+    A set containing exactly one vertex.
+    """
 
     def __init__(self, vid, graph_store: GraphStore):
         GraphComponent.__init__(self, graph_store)
@@ -168,6 +242,9 @@ class UniqueVertexSet(collections.abc.Set, GraphComponent):
 
 
 class SourceVertexSet(collections.abc.MutableSet, GraphComponent):
+    """
+    The set containing every vertex which is the source of an edge that shares the same given sink.
+    """
 
     def __init__(self, vid: VertexID, graph_store: GraphStore):
         GraphComponent.__init__(self, graph_store)
@@ -186,12 +263,26 @@ class SourceVertexSet(collections.abc.MutableSet, GraphComponent):
         return self._graph_store.count_sources(self._vid)
 
     def add(self, vertex: VertexOrID) -> 'Vertex':
+        """
+        Add an edge connecting this vertex as the source to the shared given sink. If the edge already exists, do
+        nothing. If either source or sink vertex does not exist, add it to the graph as well.
+
+        :param vertex: The vertex or vertex ID to connect to the shared sink.
+        :return: The source Vertex instance.
+        """
         vid = self._to_vid(vertex)
         eid = EdgeID(vid, self._vid)
         self._graph_store.add_edge(eid)
         return Vertex(vid, self._graph_store)
 
     def remove(self, vertex: VertexOrID) -> None:
+        """
+        Remove the edge connecting this vertex as the sink to the shared given sink. The source and sink vertices are
+        not removed. If the edge does not exist, raise an exception.
+
+        :param vertex: The source vertex or vertex ID of the edge to be removed.
+        :return: None
+        """
         vid = self._to_vid(vertex)
         eid = EdgeID(vid, self._vid)
         if not self._graph_store.has_edge(eid):
@@ -199,12 +290,22 @@ class SourceVertexSet(collections.abc.MutableSet, GraphComponent):
         self._graph_store.discard_edge(eid)
 
     def discard(self, vertex: VertexOrID) -> None:
+        """
+        Remove the edge connecting this vertex as the sink to the shared given sink. The source and sink vertices are
+        not removed. If the edge does not exist, do nothing.
+
+        :param vertex: The source vertex or vertex ID of the edge to be removed.
+        :return: None
+        """
         vid = self._to_vid(vertex)
         eid = EdgeID(vid, self._vid)
         self._graph_store.discard_edge(eid)
 
 
 class InboundEdgeSet(collections.abc.Set, GraphComponent):
+    """
+    The set of all edges having the given vertex as their shared sink.
+    """
 
     def __init__(self, vid: VertexID, graph_store: GraphStore):
         GraphComponent.__init__(self, graph_store)
@@ -212,10 +313,12 @@ class InboundEdgeSet(collections.abc.Set, GraphComponent):
 
     @property
     def sources(self) -> SourceVertexSet:
+        """The set of all source vertices for each edge in this edge set."""
         return SourceVertexSet(self._vid, self._graph_store)
 
     @property
     def sinks(self) -> UniqueVertexSet:
+        """The set of all sink vertices for each edge in this edge set."""
         return UniqueVertexSet(self._vid, self._graph_store)
 
     def __contains__(self, edge: EdgeOrID) -> bool:
@@ -239,6 +342,9 @@ class InboundEdgeSet(collections.abc.Set, GraphComponent):
 
 
 class SinkVertexSet(collections.abc.MutableSet, GraphComponent):
+    """
+    The set containing every vertex which is the sink of an edge that shares the same given source.
+    """
 
     def __init__(self, vid: VertexID, graph_store: GraphStore):
         GraphComponent.__init__(self, graph_store)
@@ -257,12 +363,26 @@ class SinkVertexSet(collections.abc.MutableSet, GraphComponent):
         return self._graph_store.count_sinks(self._vid)
 
     def add(self, vertex: VertexOrID) -> 'Vertex':
+        """
+        Add an edge connecting the shared given source to this vertex as the sink. If the edge already exists, do
+        nothing. If either source or sink vertex does not exist, add it to the graph as well.
+
+        :param vertex: The vertex or vertex ID to be connected to from the shared source.
+        :return: The sink Vertex instance.
+        """
         vid = self._to_vid(vertex)
         eid = EdgeID(self._vid, vid)
         self._graph_store.add_edge(eid)
         return Vertex(vid, self._graph_store)
 
     def remove(self, vertex: VertexOrID) -> None:
+        """
+        Remove the edge connecting the shared given source to this vertex as the sink. The source and sink vertices are
+        not removed. If the edge does not exist, raise an exception.
+
+        :param vertex: The sink vertex or vertex ID of the edge to be removed.
+        :return: None
+        """
         vid = self._to_vid(vertex)
         eid = EdgeID(self._vid, vid)
         if not self._graph_store.has_edge(eid):
@@ -270,12 +390,22 @@ class SinkVertexSet(collections.abc.MutableSet, GraphComponent):
         self._graph_store.discard_edge(eid)
 
     def discard(self, vertex: VertexOrID) -> None:
+        """
+        Remove the edge connecting the shared given source to this vertex as the sink. The source and sink vertices are
+        not removed. If the edge does not exist, do nothing.
+
+        :param vertex: The sink vertex or vertex ID of the edge to be removed.
+        :return: None
+        """
         vid = self._to_vid(vertex)
         eid = EdgeID(self._vid, vid)
         self._graph_store.discard_edge(eid)
 
 
 class OutboundEdgeSet(collections.abc.Set, GraphComponent):
+    """
+    The set of all edges having the given vertex as their shared source.
+    """
 
     def __init__(self, vid: VertexID, graph_store: GraphStore):
         GraphComponent.__init__(self, graph_store)
@@ -283,10 +413,12 @@ class OutboundEdgeSet(collections.abc.Set, GraphComponent):
 
     @property
     def sources(self) -> UniqueVertexSet:
+        """The set of all source vertices for each edge in this edge set."""
         return UniqueVertexSet(self._vid, self._graph_store)
 
     @property
     def sinks(self):
+        """The set of all sink vertices for each edge in this edge set."""
         return SinkVertexSet(self._vid, self._graph_store)
 
     def __contains__(self, edge: EdgeOrID) -> bool:
@@ -310,6 +442,9 @@ class OutboundEdgeSet(collections.abc.Set, GraphComponent):
 
 
 class VertexLabelSet(collections.abc.MutableSet, GraphComponent):
+    """
+    The set of all labels associated with this vertex.
+    """
 
     def __init__(self, vid: VertexID, graph_store: GraphStore):
         GraphComponent.__init__(self, graph_store)
@@ -325,18 +460,39 @@ class VertexLabelSet(collections.abc.MutableSet, GraphComponent):
         return self._graph_store.count_vertex_labels(self._vid)
 
     def add(self, label: Label) -> None:
+        """
+        Add a label to the vertex. If the label is already attached to the vertex, do nothing.
+
+        :param label: The label to be added.
+        :return: None
+        """
         self._graph_store.add_vertex_label(self._vid, label)
 
     def remove(self, label: Label) -> None:
+        """
+        Remove a label from the vertex. If the label is not attached to the vertex, raise an exception.
+
+        :param label: The label to be removed.
+        :return: None
+        """
         if not self._graph_store.has_vertex_label(self._vid, label):
             raise KeyError(label)
         self._graph_store.discard_vertex_label(self._vid, label)
 
     def discard(self, label: Label) -> None:
+        """
+        Remove a label from the vertex. If the label is not attached to the vertex, do nothing.
+
+        :param label: The label to be removed.
+        :return: None
+        """
         self._graph_store.discard_vertex_label(self._vid, label)
 
 
 class EdgeLabelSet(collections.abc.MutableSet, GraphComponent):
+    """
+    The set of all labels associated with this edge.
+    """
 
     def __init__(self, eid: EdgeID, graph_store: GraphStore):
         GraphComponent.__init__(self, graph_store)
@@ -352,18 +508,39 @@ class EdgeLabelSet(collections.abc.MutableSet, GraphComponent):
         return self._graph_store.count_edge_labels(self._eid)
 
     def add(self, label: Label) -> None:
+        """
+        Add a label to the edge. If the label is already attached to the edge, do nothing.
+
+        :param label: The label to be added.
+        :return: None
+        """
         self._graph_store.add_edge_label(self._eid, label)
 
     def remove(self, label: Label) -> None:
+        """
+        Remove a label from the edge. If the label is not attached to the edge, raise an exception.
+
+        :param label: The label to be removed.
+        :return: None
+        """
         if not self._graph_store.has_edge_label(self._eid, label):
             raise KeyError(label)
         self._graph_store.discard_edge_label(self._eid, label)
 
     def discard(self, label: Label) -> None:
+        """
+        Remove a label from the edge. If the label is not attached to the edge, do nothing.
+
+        :param label: The label to be removed.
+        :return: None
+        """
         self._graph_store.discard_edge_label(self._eid, label)
 
 
 class VertexDataMap(collections.abc.MutableMapping, GraphComponent):
+    """
+    A dictionary mapping out the key/value pairs associated with the vertex.
+    """
 
     def __init__(self, vid: VertexID, graph_store: GraphStore):
         GraphComponent.__init__(self, graph_store)
@@ -393,6 +570,9 @@ class VertexDataMap(collections.abc.MutableMapping, GraphComponent):
 
 
 class EdgeDataMap(collections.abc.MutableMapping, GraphComponent):
+    """
+    A dictionary mapping out the key/value pairs associated with the edge.
+    """
 
     def __init__(self, eid: EdgeID, graph_store: GraphStore):
         GraphComponent.__init__(self, graph_store)
@@ -422,6 +602,9 @@ class EdgeDataMap(collections.abc.MutableMapping, GraphComponent):
 
 
 class Vertex(GraphComponent):
+    """
+    A *potential* vertex of the graph. Check the exists property to determine if the vertex belongs to the graph or not.
+    """
 
     def __init__(self, vid: VertexID, graph_store: GraphStore):
         super().__init__(graph_store)
@@ -451,50 +634,86 @@ class Vertex(GraphComponent):
 
     @property
     def vid(self) -> VertexID:
+        """
+        The vertex's unique ID.
+        """
         return self._vid
 
     @property
     def labels(self) -> VertexLabelSet:
+        """
+        The set of labels associated with the vertex.
+        """
         return VertexLabelSet(self._vid, self._graph_store)
 
     @property
     def data(self) -> VertexDataMap:
+        """
+        The key/value pairs associated with the vertex.
+        """
         return VertexDataMap(self._vid, self._graph_store)
 
     @property
     def exists(self) -> bool:
+        """
+        Whether or not the vertex exists in the graph.
+        """
         return self._graph_store.has_vertex(self._vid)
 
     @property
     def inbound(self) -> InboundEdgeSet:
+        """The set of edges that have this vertex as their sink."""
         return InboundEdgeSet(self._vid, self._graph_store)
 
     @property
     def outbound(self) -> OutboundEdgeSet:
+        """The set of edges that have this vertex as their source."""
         return OutboundEdgeSet(self._vid, self._graph_store)
 
     @property
     def sources(self):
+        """The set of vertices that are sources for edges that have this vertex as their sink."""
         return SourceVertexSet(self._vid, self._graph_store)
 
     @property
     def sinks(self):
+        """The set of vertices that are sinks for edges that have this vertex as their source."""
         return SinkVertexSet(self._vid, self._graph_store)
 
     def add(self) -> 'Vertex':
+        """
+        Add the vertex to the graph. If the vertex already exists, do nothing.
+
+        :return: The Vertex instance.
+        """
         self._graph_store.add_vertex(self._vid)
         return self
 
     def remove(self) -> None:
+        """
+        Remove the vertex from the graph. If the vertex was not in the graph, raise an exception. Any incident edges to
+        the vertex are also removed.
+
+        :return: None
+        """
         if not self._graph_store.has_vertex(self._vid):
             raise KeyError(self._vid)
         self._graph_store.discard_vertex(self._vid)
 
     def discard(self) -> None:
+        """
+        Remove the vertex from the graph. If the vertex was not in the graph, do nothing. Any incident edges to the
+        vertex are also removed.
+
+        :return: None
+        """
         self._graph_store.discard_vertex(self._vid)
 
 
 class Edge(GraphComponent):
+    """
+    A *potential* edge of the graph. Check the exists property to determine if the edge belongs to the graph or not.
+    """
 
     def __init__(self, eid: EdgeID, graph_store: GraphStore):
         super().__init__(graph_store)
@@ -526,44 +745,72 @@ class Edge(GraphComponent):
 
     @property
     def eid(self) -> EdgeID:
+        """The edge's unique ID."""
         return self._eid
 
     @property
     def source(self) -> Vertex:
+        """The vertex that is the source of the edge."""
         return Vertex(self._eid.source, self._graph_store)
 
     @property
     def sink(self) -> Vertex:
+        """The vertex that is the sink of the edge."""
         return Vertex(self._eid.sink, self._graph_store)
 
     @property
     def labels(self) -> EdgeLabelSet:
+        """The labels associated with the edge."""
         # noinspection PyTypeChecker
         return EdgeLabelSet(self._eid, self._graph_store)
 
     @property
     def data(self) -> EdgeDataMap:
+        """The key/value pairs associated with the edge."""
         # noinspection PyTypeChecker
         return EdgeDataMap(self._eid, self._graph_store)
 
     @property
     def exists(self) -> bool:
+        """Whether or not the edge exists in the graph."""
         return self._graph_store.has_edge(self._eid)
 
     def add(self) -> 'Edge':
+        """
+        Add the edge to the graph. If the edge already exists, do nothing. If either source or sink does not exist,
+        create it.
+
+        :return: This Edge instance.
+        """
         self._graph_store.add_edge(self._eid)
         return self
 
     def remove(self) -> None:
+        """
+        Remove the edge from the graph. If the edge is not in the graph, raise an exception. The source and sink are
+        not removed by this operation.
+
+        :return: None
+        """
         if not self._graph_store.has_edge(self._eid):
             raise KeyError(self._eid)
         self._graph_store.discard_edge(self._eid)
 
     def discard(self) -> None:
+        """
+        Remove the edge from the graph. If the edge is not in the graph, do nothing. The source and sink are not
+        removed by this operation.
+
+        :return: None
+        """
         self._graph_store.discard_edge(self._eid)
 
 
 class Graph:
+    """
+    A graph, consisting of a set of vertices and edges, such that every edge's source and sink belong to the set of
+    vertices.
+    """
 
     def __init__(self, store: Optional[Union[GraphStore, str, MutableMapping[bytes, bytes]]]=None):
         if store is None:
@@ -585,15 +832,19 @@ class Graph:
 
     @property
     def is_open(self):
+        """Whether or not the graph is open. Once a graph is closed, it cannot be operated on."""
         return self._graph_store.is_open
 
     def close(self):
+        """Close the graph."""
         self._graph_store.close()
 
     @property
     def vertices(self) -> FullVertexSet:
+        """The set of all vertices in the graph."""
         return FullVertexSet(self._graph_store)
 
     @property
     def edges(self) -> FullEdgeSet:
+        """The set of all edges in the graph."""
         return FullEdgeSet(self._graph_store)
