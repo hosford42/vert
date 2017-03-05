@@ -105,9 +105,8 @@ class FullVertexSet(collections.abc.MutableSet, GraphComponent):
         :return: None
         """
         vid = self._to_vid(vertex)
-        if not self._graph_store.has_vertex(vid):
+        if not self._graph_store.discard_vertex(vid):
             raise KeyError(vid)
-        self._graph_store.discard_vertex(vid)
 
     def discard(self, vertex: VertexOrID) -> None:
         """
@@ -205,9 +204,8 @@ class FullEdgeSet(collections.abc.MutableSet, GraphComponent):
         :return: None
         """
         eid = self._to_eid(edge)
-        if not self._graph_store.has_edge(eid):
+        if not self._graph_store.discard_edge(eid):
             raise KeyError(eid)
-        self._graph_store.discard_edge(eid)
 
     def discard(self, edge: EdgeOrID) -> None:
         """
@@ -285,9 +283,8 @@ class SourceVertexSet(collections.abc.MutableSet, GraphComponent):
         """
         vid = self._to_vid(vertex)
         eid = EdgeID(vid, self._vid)
-        if not self._graph_store.has_edge(eid):
+        if not self._graph_store.discard_edge(eid):
             raise KeyError(vid)
-        self._graph_store.discard_edge(eid)
 
     def discard(self, vertex: VertexOrID) -> None:
         """
@@ -385,9 +382,8 @@ class SinkVertexSet(collections.abc.MutableSet, GraphComponent):
         """
         vid = self._to_vid(vertex)
         eid = EdgeID(self._vid, vid)
-        if not self._graph_store.has_edge(eid):
+        if not self._graph_store.discard_edge(eid):
             raise KeyError(vid)
-        self._graph_store.discard_edge(eid)
 
     def discard(self, vertex: VertexOrID) -> None:
         """
@@ -475,9 +471,8 @@ class VertexLabelSet(collections.abc.MutableSet, GraphComponent):
         :param label: The label to be removed.
         :return: None
         """
-        if not self._graph_store.has_vertex_label(self._vid, label):
+        if not self._graph_store.discard_vertex_label(self._vid, label):
             raise KeyError(label)
-        self._graph_store.discard_vertex_label(self._vid, label)
 
     def discard(self, label: Label) -> None:
         """
@@ -523,9 +518,8 @@ class EdgeLabelSet(collections.abc.MutableSet, GraphComponent):
         :param label: The label to be removed.
         :return: None
         """
-        if not self._graph_store.has_edge_label(self._eid, label):
+        if not self._graph_store.discard_edge_label(self._eid, label):
             raise KeyError(label)
-        self._graph_store.discard_edge_label(self._eid, label)
 
     def discard(self, label: Label) -> None:
         """
@@ -564,9 +558,8 @@ class VertexDataMap(collections.abc.MutableMapping, GraphComponent):
         self._graph_store.set_vertex_data(self._vid, key, value)
 
     def __delitem__(self, key: Hashable) -> None:
-        if not self._graph_store.has_vertex_data(self._vid, key):
+        if not self._graph_store.discard_vertex_data(self._vid, key):
             raise KeyError(key)
-        self._graph_store.discard_vertex_data(self._vid, key)
 
 
 class EdgeDataMap(collections.abc.MutableMapping, GraphComponent):
@@ -596,9 +589,8 @@ class EdgeDataMap(collections.abc.MutableMapping, GraphComponent):
         self._graph_store.set_edge_data(self._eid, key, value)
 
     def __delitem__(self, key: Hashable) -> None:
-        if not self._graph_store.has_edge_data(self._eid, key):
+        if not self._graph_store.discard_edge_data(self._eid, key):
             raise KeyError(key)
-        self._graph_store.discard_edge_data(self._eid, key)
 
 
 class Vertex(GraphComponent):
@@ -696,9 +688,8 @@ class Vertex(GraphComponent):
 
         :return: None
         """
-        if not self._graph_store.has_vertex(self._vid):
+        if not self._graph_store.discard_vertex(self._vid):
             raise KeyError(self._vid)
-        self._graph_store.discard_vertex(self._vid)
 
     def discard(self) -> None:
         """
@@ -792,9 +783,8 @@ class Edge(GraphComponent):
 
         :return: None
         """
-        if not self._graph_store.has_edge(self._eid):
+        if not self._graph_store.discard_edge(self._eid):
             raise KeyError(self._eid)
-        self._graph_store.discard_edge(self._eid)
 
     def discard(self) -> None:
         """
