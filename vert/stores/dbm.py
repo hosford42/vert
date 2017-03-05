@@ -197,10 +197,12 @@ class DBMGraphStore(base.GraphStore):
             del self._v_cache[vid]
             del self._v_cache_times[vid]
             self._v_cache_dirty.discard(vid)
-        try:
+            try:
+                self._immediate_del_data(vid, VID_PREFIX)
+            except KeyError:
+                pass  # Sometimes it won't have made it to disk yet.
+        else:
             self._immediate_del_data(vid, VID_PREFIX)
-        except KeyError:
-            pass  # Sometimes it won't have made it to disk yet.
 
     def _read_edge(self, eid: base.EdgeID) -> EdgeData:
         assert self._is_open
@@ -245,12 +247,14 @@ class DBMGraphStore(base.GraphStore):
             del self._e_cache[eid]
             del self._e_cache_times[eid]
             self._e_cache_dirty.discard(eid)
-        try:
+            try:
+                self._immediate_del_data(eid, EID_PREFIX)
+            except KeyError:
+                return  # Sometimes it won't have made it to disk yet.
+        else:
             self._immediate_del_data(eid, EID_PREFIX)
-        except KeyError:
-            pass  # Sometimes it won't have made it to disk yet.
 
-    def flush(self):
+    def flush(self) -> None:
         for vid in sorted(self._v_cache_times, key=self._v_cache_times.get):
             self._retire_vertex(vid)
         for eid in sorted(self._e_cache_times, key=self._e_cache_times.get):
@@ -396,34 +400,43 @@ class DBMGraphStore(base.GraphStore):
             self._e_count = self.count_edges() + 1
             self._e_count_dirty = True
 
-    def discard_vertex(self, vid: base.VertexID):
-        if self.has_vertex(vid):
+    def discard_vertex(self, vid: base.VertexID) -> bool:
+        try:
             _, _, sources, sinks = self._read_vertex(vid)
+        except KeyError:
+            return False
 
-            for source in sources:
-                self.discard_edge(base.EdgeID(source, vid), ignore=vid)
-            for sink in sinks:
-                self.discard_edge(base.EdgeID(vid, sink), ignore=vid)
+        for source in sources:
+            self.discard_edge(base.EdgeID(source, vid), ignore=vid)
+        for sink in sinks:
+            self.discard_edge(base.EdgeID(vid, sink), ignore=vid)
 
-            self._del_vertex(vid)
-            self._v_count = self.count_vertices() - 1
-            self._v_count_dirty = True
+        self._del_vertex(vid)
+        self._v_count = self.count_vertices() - 1
+        self._v_count_dirty = True
 
-    def discard_edge(self, eid: base.EdgeID, ignore: Optional[base.VertexID] = None) -> None:
-        if self.has_edge(eid):
-            if eid.source != ignore:
-                source_data = self._read_vertex(eid.source)
-                source_data[SINKS_INDEX].remove(eid.sink)
-                self._write_vertex(eid.source, source_data)
+        return True
 
-            if eid.sink != ignore:
-                sink_data = self._read_vertex(eid.sink)
-                sink_data[SOURCES_INDEX].remove(eid.source)
-                self._write_vertex(eid.sink, sink_data)
-
+    def discard_edge(self, eid: base.EdgeID, ignore: Optional[base.VertexID] = None) -> bool:
+        try:
             self._del_edge(eid)
-            self._e_count = self.count_edges() - 1
-            self._e_count_dirty = True
+        except KeyError:
+            return False
+
+        if eid.source != ignore:
+            source_data = self._read_vertex(eid.source)
+            source_data[SINKS_INDEX].remove(eid.sink)
+            self._write_vertex(eid.source, source_data)
+
+        if eid.sink != ignore:
+            sink_data = self._read_vertex(eid.sink)
+            sink_data[SOURCES_INDEX].remove(eid.source)
+            self._write_vertex(eid.sink, sink_data)
+
+        self._e_count = self.count_edges() - 1
+        self._e_count_dirty = True
+
+        return True
 
     def add_vertex_label(self, vid: base.VertexID, label: base.Label) -> None:
         self.add_vertex(vid)
@@ -438,14 +451,16 @@ class DBMGraphStore(base.GraphStore):
         except KeyError:
             return False
 
-    def discard_vertex_label(self, vid: base.VertexID, label: base.Label) -> None:
+    def discard_vertex_label(self, vid: base.VertexID, label: base.Label) -> bool:
         try:
             data = self._read_vertex(vid)
         except KeyError:
-            return  # Nothing to do
+            return False
         if label in data[LABEL_INDEX]:
             data[LABEL_INDEX].remove(label)
             self._write_vertex(vid, data)
+            return True
+        return False
 
     def iter_vertex_labels(self, vid: base.VertexID) -> Iterator[base.Label]:
         try:
@@ -472,14 +487,16 @@ class DBMGraphStore(base.GraphStore):
         except KeyError:
             return False
 
-    def discard_edge_label(self, eid: base.EdgeID, label: base.Label) -> None:
+    def discard_edge_label(self, eid: base.EdgeID, label: base.Label) -> bool:
         try:
             data = self._read_edge(eid)
         except KeyError:
-            return  # Nothing to do
+            return False
         if label in data[LABEL_INDEX]:
             data[LABEL_INDEX].remove(label)
             self._write_edge(eid, data)
+            return True
+        return False
 
     def iter_edge_labels(self, eid: base.EdgeID) -> Iterator[base.Label]:
         try:
@@ -511,14 +528,15 @@ class DBMGraphStore(base.GraphStore):
         except KeyError:
             return False
 
-    def discard_vertex_data(self, vid: base.VertexID, key: Hashable) -> None:
+    def discard_vertex_data(self, vid: base.VertexID, key: Hashable) -> bool:
         try:
             data = self._read_vertex(vid)
             del data[DATA_INDEX][key]
         except KeyError:
-            return  # Nothing to do
+            return False
         else:
             self._write_vertex(vid, data)
+            return True
 
     def iter_vertex_data_keys(self, vid: base.VertexID) -> Iterator[Hashable]:
         try:
@@ -550,14 +568,15 @@ class DBMGraphStore(base.GraphStore):
         except KeyError:
             return False
 
-    def discard_edge_data(self, eid: base.EdgeID, key: Hashable) -> None:
+    def discard_edge_data(self, eid: base.EdgeID, key: Hashable) -> bool:
         try:
             data = self._read_edge(eid)
             del data[DATA_INDEX][key]
         except KeyError:
-            return
+            return False
         else:
             self._write_edge(eid, data)
+            return True
 
     def iter_edge_data_keys(self, eid: base.EdgeID) -> Iterator[Hashable]:
         try:
