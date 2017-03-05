@@ -103,17 +103,18 @@ class GraphStore:
         """
         raise NotImplementedError()
 
-    def discard_vertex(self, vid: VertexID) -> None:
+    def discard_vertex(self, vid: VertexID) -> bool:
         """
         Remove the vertex associated with this ID from the graph. If such a vertex does not exist, do nothing. Any
-        incident edges to the vertex are also removed.
+        incident edges to the vertex are also removed. Return a Boolean indicating whether the vertex was present to
+        be removed.
         """
         raise NotImplementedError()
 
-    def discard_edge(self, eid: EdgeID, ignore: Optional[VertexID] = None) -> None:
+    def discard_edge(self, eid: EdgeID, ignore: Optional[VertexID] = None) -> bool:
         """
         Remove the edge associated with this ID from the graph. If such an edge does not exist, do nothing. The source
-        and sink vertex are not removed.
+        and sink vertex are not removed. Return a Boolean indicating whether the edge was present to be removed.
         """
         raise NotImplementedError()
 
@@ -123,7 +124,7 @@ class GraphStore:
     def has_vertex_label(self, vid: VertexID, label: Label) -> bool:
         raise NotImplementedError()
 
-    def discard_vertex_label(self, vid: VertexID, label: Label) -> None:
+    def discard_vertex_label(self, vid: VertexID, label: Label) -> bool:
         raise NotImplementedError()
 
     def iter_vertex_labels(self, vid: VertexID) -> Iterator[Label]:
@@ -138,7 +139,7 @@ class GraphStore:
     def has_edge_label(self, eid: EdgeID, label: Label) -> bool:
         raise NotImplementedError()
 
-    def discard_edge_label(self, eid: EdgeID, label: Label) -> None:
+    def discard_edge_label(self, eid: EdgeID, label: Label) -> bool:
         raise NotImplementedError()
 
     def iter_edge_labels(self, eid: EdgeID) -> Iterator[Label]:
@@ -156,7 +157,7 @@ class GraphStore:
     def has_vertex_data(self, vid: VertexID, key: Hashable) -> bool:
         raise NotImplementedError()
 
-    def discard_vertex_data(self, vid: VertexID, key: Hashable) -> None:
+    def discard_vertex_data(self, vid: VertexID, key: Hashable) -> bool:
         raise NotImplementedError()
 
     def iter_vertex_data_keys(self, vid: VertexID) -> Iterator[Hashable]:
@@ -174,7 +175,7 @@ class GraphStore:
     def has_edge_data(self, eid: EdgeID, key: Hashable) -> bool:
         raise NotImplementedError()
 
-    def discard_edge_data(self, eid: EdgeID, key: Hashable) -> None:
+    def discard_edge_data(self, eid: EdgeID, key: Hashable) -> bool:
         raise NotImplementedError()
 
     def iter_edge_data_keys(self, eid: EdgeID) -> Iterator[Hashable]:
