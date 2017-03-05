@@ -96,9 +96,9 @@ class MemoryGraphStore(base.GraphStore):
         self._backward[eid.sink].add(eid.source)
         self._edge_count += 1
 
-    def discard_vertex(self, vid: base.VertexID):
+    def discard_vertex(self, vid: base.VertexID) -> bool:
         if vid not in self._forward:
-            return
+            return False
 
         # Remove labels and data
         if vid in self._vertex_labels:
@@ -116,7 +116,12 @@ class MemoryGraphStore(base.GraphStore):
         del self._forward[vid]
         del self._backward[vid]
 
-    def discard_edge(self, eid: base.EdgeID, ignore: Optional[base.VertexID] = None) -> None:
+        return True
+
+    def discard_edge(self, eid: base.EdgeID, ignore: Optional[base.VertexID] = None) -> bool:
+        if not self.has_edge(eid):
+            return False
+
         # Remove labels and data.
         if eid in self._edge_labels:
             del self._edge_labels[eid]
@@ -132,6 +137,8 @@ class MemoryGraphStore(base.GraphStore):
         # Decrement the counter
         self._edge_count -= 1
 
+        return True
+
     def add_vertex_label(self, vid: base.VertexID, label: base.Label) -> None:
         self.add_vertex(vid)
         if vid in self._vertex_labels:
@@ -142,13 +149,16 @@ class MemoryGraphStore(base.GraphStore):
     def has_vertex_label(self, vid: base.VertexID, label: base.Label) -> bool:
         return label in self._vertex_labels.get(vid, ())
 
-    def discard_vertex_label(self, vid: base.VertexID, label: base.Label) -> None:
+    def discard_vertex_label(self, vid: base.VertexID, label: base.Label) -> bool:
         labels = self._vertex_labels.get(vid, None)
         if labels is None:
-            return
-        labels.discard(label)
-        if not labels:
-            del self._vertex_labels[vid]
+            return False
+        if label in labels:
+            labels.discard(label)
+            if not labels:
+                del self._vertex_labels[vid]
+            return True
+        return False
 
     def iter_vertex_labels(self, vid: base.VertexID) -> Iterator[base.Label]:
         return iter(self._vertex_labels.get(vid, ()))
@@ -166,13 +176,16 @@ class MemoryGraphStore(base.GraphStore):
     def has_edge_label(self, eid: base.EdgeID, label: base.Label) -> bool:
         return label in self._edge_labels.get(eid, ())
 
-    def discard_edge_label(self, eid: base.EdgeID, label: base.Label) -> None:
+    def discard_edge_label(self, eid: base.EdgeID, label: base.Label) -> bool:
         labels = self._edge_labels.get(eid, None)
         if labels is None:
-            return
-        labels.discard(label)
-        if not labels:
-            del self._edge_labels[eid]
+            return False
+        if label in labels:
+            labels.discard(label)
+            if not labels:
+                del self._edge_labels[eid]
+            return True
+        return False
 
     def iter_edge_labels(self, eid: base.EdgeID) -> Iterator[base.Label]:
         return iter(self._edge_labels.get(eid, ()))
@@ -197,14 +210,16 @@ class MemoryGraphStore(base.GraphStore):
     def has_vertex_data(self, vid: base.VertexID, key: Hashable) -> bool:
         return key in self._vertex_data.get(vid, ())
 
-    def discard_vertex_data(self, vid: base.VertexID, key: Hashable) -> None:
+    def discard_vertex_data(self, vid: base.VertexID, key: Hashable) -> bool:
         data = self._vertex_data.get(vid, None)
         if data is None:
-            return
+            return False
         if key in data:
             del data[key]
-        if not data:
-            del self._vertex_data[vid]
+            if not data:
+                del self._vertex_data[vid]
+            return True
+        return False
 
     def iter_vertex_data_keys(self, vid: base.VertexID) -> Iterator[Hashable]:
         return iter(self._vertex_data.get(vid, ()))
@@ -229,14 +244,16 @@ class MemoryGraphStore(base.GraphStore):
     def has_edge_data(self, eid: base.EdgeID, key: Hashable) -> bool:
         return key in self._edge_data.get(eid, ())
 
-    def discard_edge_data(self, eid: base.EdgeID, key: Hashable) -> None:
+    def discard_edge_data(self, eid: base.EdgeID, key: Hashable) -> bool:
         data = self._edge_data.get(eid, None)
         if data is None:
-            return
+            return False
         if key in data:
             del data[key]
-        if not data:
-            del self._edge_data[eid]
+            if not data:
+                del self._edge_data[eid]
+            return True
+        return False
 
     def iter_edge_data_keys(self, eid: base.EdgeID) -> Iterator[Hashable]:
         return iter(self._edge_data.get(eid, ()))
