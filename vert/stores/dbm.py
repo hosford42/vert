@@ -29,6 +29,7 @@ LABEL_INDEX = 0
 DATA_INDEX = 1
 SOURCES_INDEX = 2
 SINKS_INDEX = 3
+UNDIRECTED_INDEX = 4
 
 
 class DBMGraphStore(base.GraphStore):
@@ -109,7 +110,7 @@ class DBMGraphStore(base.GraphStore):
     @staticmethod
     def _encode_key(key: Any, prefix: bytes) -> bytes:
         if isinstance(key, base.EdgeID) and prefix == EID_PREFIX:
-            key = tuple(key)
+            key = (tuple(key.vertices), isinstance(key, base.DirectedEdgeID))
         try:
             assert ast.literal_eval(repr(key)) == key
         except (ValueError, AssertionError):
@@ -121,7 +122,11 @@ class DBMGraphStore(base.GraphStore):
         assert encoded_key.startswith(prefix)
         result = ast.literal_eval(encoded_key[len(prefix):].decode())
         if prefix == EID_PREFIX:
-            result = base.EdgeID(*result)
+            (vid1, vid2), directed = result
+            if directed:
+                result = base.DirectedEdgeID(vid1, vid2)
+            else:
+                result = base.UndirectedEdgeID(vid1, vid2)
         return result
 
     def _immediate_read_data(self, key: Any, prefix: bytes) -> Any:
@@ -374,6 +379,7 @@ class DBMGraphStore(base.GraphStore):
                 {},  # Data
                 [],  # Sources
                 [],  # Sinks
+                [],  # Undirected
             ]
             self._write_vertex(vid, data)
             self._v_count = self.count_vertices() + 1
@@ -381,35 +387,49 @@ class DBMGraphStore(base.GraphStore):
 
     def add_edge(self, eid: base.EdgeID) -> None:
         if not self.has_edge(eid):
-            self.add_vertex(eid.source)
-            self.add_vertex(eid.sink)
+            for vertex in eid:
+                self.add_vertex(vertex)
             data = [
                 [],  # Labels,
                 {},  # Data
             ]
             self._write_edge(eid, data)
 
-            source_data = self._read_vertex(eid.source)
-            source_data[SINKS_INDEX].append(eid.sink)
-            self._write_vertex(eid.source, source_data)
+            if isinstance(eid, base.DirectedEdgeID):
+                source_data = self._read_vertex(eid.source)
+                source_data[SINKS_INDEX].append(eid.sink)
+                self._write_vertex(eid.source, source_data)
 
-            sink_data = self._read_vertex(eid.sink)
-            sink_data[SOURCES_INDEX].append(eid.source)
-            self._write_vertex(eid.sink, sink_data)
+                sink_data = self._read_vertex(eid.sink)
+                sink_data[SOURCES_INDEX].append(eid.source)
+                self._write_vertex(eid.sink, sink_data)
+            else:
+                assert isinstance(eid, base.UndirectedEdgeID)
+                v1, v2 = eid.vertices
+                v1_data = self._read_vertex(v1)
+                v1_data[UNDIRECTED_INDEX].append(v2)
+                self._write_vertex(v1, v1_data)
+
+                if v1 != v2:
+                    v2_data = self._read_vertex(v2)
+                    v2_data[UNDIRECTED_INDEX].append(v1)
+                    self._write_vertex(v2, v2_data)
 
             self._e_count = self.count_edges() + 1
             self._e_count_dirty = True
 
     def discard_vertex(self, vid: base.VertexID) -> bool:
         try:
-            _, _, sources, sinks = self._read_vertex(vid)
+            _, _, sources, sinks, undirected = self._read_vertex(vid)
         except KeyError:
             return False
 
         for source in sources:
-            self.discard_edge(base.EdgeID(source, vid), ignore=vid)
+            self.discard_edge(base.DirectedEdgeID(source, vid), ignore=vid)
         for sink in sinks:
-            self.discard_edge(base.EdgeID(vid, sink), ignore=vid)
+            self.discard_edge(base.DirectedEdgeID(vid, sink), ignore=vid)
+        for other in undirected:
+            self.discard_edge(base.UndirectedEdgeID(vid, other), ignore=vid)
 
         self._del_vertex(vid)
         self._v_count = self.count_vertices() - 1
@@ -423,15 +443,29 @@ class DBMGraphStore(base.GraphStore):
         except KeyError:
             return False
 
-        if eid.source != ignore:
-            source_data = self._read_vertex(eid.source)
-            source_data[SINKS_INDEX].remove(eid.sink)
-            self._write_vertex(eid.source, source_data)
+        if isinstance(eid, base.DirectedEdgeID):
+            if eid.source != ignore:
+                source_data = self._read_vertex(eid.source)
+                source_data[SINKS_INDEX].remove(eid.sink)
+                self._write_vertex(eid.source, source_data)
 
-        if eid.sink != ignore:
-            sink_data = self._read_vertex(eid.sink)
-            sink_data[SOURCES_INDEX].remove(eid.source)
-            self._write_vertex(eid.sink, sink_data)
+            if eid.sink != ignore:
+                sink_data = self._read_vertex(eid.sink)
+                sink_data[SOURCES_INDEX].remove(eid.source)
+                self._write_vertex(eid.sink, sink_data)
+        else:
+            assert isinstance(eid, base.UndirectedEdgeID)
+            v1, v2 = eid.vertices
+
+            if v1 != ignore:
+                v1_data = self._read_vertex(v1)
+                v1_data[UNDIRECTED_INDEX].remove(v2)
+                self._write_vertex(v1, v1_data)
+
+            if v1 != v2 and v2 != ignore:
+                v2_data = self._read_vertex(v2)
+                v2_data[UNDIRECTED_INDEX].remove(v2)
+                self._write_vertex(v2, v2_data)
 
         self._e_count = self.count_edges() - 1
         self._e_count_dirty = True

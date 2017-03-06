@@ -22,6 +22,7 @@ class MemoryGraphStore(base.GraphStore):
     def __init__(self):
         self._forward = {}
         self._backward = {}
+        self._dual = {}
         self._vertex_labels = {}
         self._edge_labels = {}
         self._vertex_data = {}
@@ -40,7 +41,18 @@ class MemoryGraphStore(base.GraphStore):
     def iter_edges(self) -> Iterator[base.EdgeID]:
         for source, sinks in self._forward.items():
             for sink in sinks:
-                yield base.EdgeID(source, sink)
+                yield base.DirectedEdgeID(source, sink)
+
+        # We have to guarantee that each edge is only yielded once, which is a bit more complicated when edges
+        # are undirected. We do that by imposing an artificial order on the IDs (since IDs are not required to be
+        # ordered). I know repr is slow, but it's better than building a set to avoid duplicates.
+        for left, rights in self._dual.items():
+            if left in rights:
+                yield base.UndirectedEdgeID(left, left)
+            left_repr = repr(left)
+            for right in rights:
+                if left != right and left_repr < repr(right):
+                    yield base.UndirectedEdgeID(left, right)
 
     def has_source(self, sink: base.VertexID) -> bool:
         return bool(self._backward.get(sink, ()))
@@ -80,21 +92,37 @@ class MemoryGraphStore(base.GraphStore):
         return vid in self._forward
 
     def has_edge(self, eid: base.EdgeID) -> bool:
-        return eid.sink in self._forward.get(eid.source, ())
+        if isinstance(eid, base.DirectedEdgeID):
+            return eid.sink in self._forward.get(eid.source, ())
+        else:
+            assert isinstance(eid, base.UndirectedEdgeID)
+            v1, v2 = eid.vertices
+            return v2 in self._dual.get(v1, ())
 
     def add_vertex(self, vid: base.VertexID) -> None:
         if vid not in self._forward:
             self._forward[vid] = set()
             self._backward[vid] = set()
+            self._dual[vid] = set()
 
     def add_edge(self, eid: base.EdgeID) -> None:
-        if eid.sink in self._forward.get(eid.source, ()):
-            return
-        self.add_vertex(eid.source)
-        self.add_vertex(eid.sink)
-        self._forward[eid.source].add(eid.sink)
-        self._backward[eid.sink].add(eid.source)
-        self._edge_count += 1
+        if isinstance(eid, base.DirectedEdgeID):
+            if eid.sink in self._forward.get(eid.source, ()):
+                return
+            self.add_vertex(eid.source)
+            self.add_vertex(eid.sink)
+            self._forward[eid.source].add(eid.sink)
+            self._backward[eid.sink].add(eid.source)
+            self._edge_count += 1
+        else:
+            assert isinstance(eid, base.UndirectedEdgeID)
+            v1, v2 = eid.vertices
+            if v2 in self._dual.get(v1, ()):
+                return
+            self.add_vertex(v1)
+            self.add_vertex(v2)
+            self._dual[v1].add(v2)
+            self._dual[v2].add(v1)
 
     def discard_vertex(self, vid: base.VertexID) -> bool:
         if vid not in self._forward:
@@ -108,13 +136,16 @@ class MemoryGraphStore(base.GraphStore):
 
         # Remove all incident edges.
         for sink in self._forward[vid]:
-            self.discard_edge(base.EdgeID(vid, sink), ignore=vid)
+            self.discard_edge(base.DirectedEdgeID(vid, sink), ignore=vid)
         for source in self._backward[vid]:
-            self.discard_edge(base.EdgeID(source, vid), ignore=vid)
+            self.discard_edge(base.DirectedEdgeID(source, vid), ignore=vid)
+        for other in self._dual[vid]:
+            self.discard_edge(base.UndirectedEdgeID(vid, other), ignore=vid)
 
         # Remove the vertex itself
         del self._forward[vid]
         del self._backward[vid]
+        del self._dual[vid]
 
         return True
 
@@ -129,10 +160,18 @@ class MemoryGraphStore(base.GraphStore):
             del self._edge_data[eid]
 
         # Remove the edge itself
-        if eid.source != ignore:
-            self._forward[eid.source].discard(eid.sink)
-        if eid.sink != ignore:
-            self._backward[eid.sink].discard(eid.source)
+        if isinstance(eid, base.DirectedEdgeID):
+            if eid.source != ignore:
+                self._forward[eid.source].discard(eid.sink)
+            if eid.sink != ignore:
+                self._backward[eid.sink].discard(eid.source)
+        else:
+            assert isinstance(eid, base.UndirectedEdgeID)
+            v1, v2 = eid.vertices
+            if v1 != ignore:
+                self._dual[v1].discard(v2)
+            if v1 != v2 and v2 != ignore:
+                self._dual[v2].discard(v1)
 
         # Decrement the counter
         self._edge_count -= 1

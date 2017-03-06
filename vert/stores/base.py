@@ -14,8 +14,70 @@ __all__ = [
 ]
 
 VertexID = NewType('VertexID', Union[int, str, bytes])
-EdgeID = NamedTuple('EdgeId', [('source', VertexID), ('sink', VertexID)])
+# EdgeID = NamedTuple('EdgeId', [('source', VertexID), ('sink', VertexID)])
 Label = NewType('Label', Hashable)
+
+
+class EdgeID:
+
+    @property
+    def vertices(self) -> Iterator[VertexID]:
+        """An iterator, guaranteed to yield exactly 2 vertices, in the same order every time."""
+        raise NotImplementedError()
+
+    @property
+    def is_directed(self) -> bool:
+        raise NotImplementedError()
+
+    def __iter__(self) -> Iterator[VertexID]:
+        raise NotImplementedError()
+
+
+_DirectedEdgeID = NamedTuple('DirectedEdgeId', [('source', VertexID), ('sink', VertexID)])
+
+
+class DirectedEdgeID(_DirectedEdgeID, EdgeID):
+
+    def __new__(cls, source: VertexID, sink: VertexID, *args, **kwargs):
+        return _DirectedEdgeID.__new__(cls, source, sink, *args, **kwargs)
+
+    @property
+    def vertices(self) -> Iterator[VertexID]:
+        """An iterator, guaranteed to yield exactly 2 vertices, in the same order every time."""
+        yield from self
+
+    @property
+    def is_directed(self) -> bool:
+        return True
+
+    def __iter__(self) -> Iterator[VertexID]:
+        return super().__iter__()
+
+
+class UndirectedEdgeID(frozenset, EdgeID):
+
+    def __init__(self, vid1: VertexID, vid2: VertexID):
+        super().__init__((vid1, vid2))
+
+    def __new__(cls, vid1: VertexID, vid2: VertexID, *args, **kwargs):
+        return frozenset.__new__(cls, (vid1, vid2), *args, **kwargs)
+
+    @property
+    def is_directed(self) -> bool:
+        return False
+
+    @property
+    def vertices(self) -> Iterator[VertexID]:
+        """An iterator, guaranteed to yield exactly 2 vertices, in the same order every time."""
+        if len(self) == 1:
+            for v in self:
+                yield v
+                yield v
+        else:
+            try:
+                yield from sorted(self)
+            except TypeError:
+                yield from sorted(self, key=repr)
 
 
 class GraphStore:
