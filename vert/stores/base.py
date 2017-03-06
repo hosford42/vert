@@ -10,11 +10,13 @@ __all__ = [
     'GraphStore',
     'VertexID',
     'EdgeID',
+    'DirectedEdgeID',
+    'UndirectedEdgeID',
     'Label',
 ]
 
+
 VertexID = NewType('VertexID', Union[int, str, bytes])
-# EdgeID = NamedTuple('EdgeId', [('source', VertexID), ('sink', VertexID)])
 Label = NewType('Label', Hashable)
 
 
