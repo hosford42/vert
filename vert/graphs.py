@@ -799,7 +799,7 @@ class DirectedEdge(Edge):
         return Vertex(self._eid.sink, self._graph_store)
 
     @property
-    def undirected(self) -> UndirectedEdge:
+    def undirected(self) -> 'UndirectedEdge':
         """The undirected edge connecting the two vertices."""
         return UndirectedEdge(UndirectedEdgeID(*self._eid), self._graph_store)
 
