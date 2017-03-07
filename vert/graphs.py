@@ -130,56 +130,10 @@ class FullVertexSet(collections.abc.MutableSet, GraphComponent):
         self._graph_store.discard_vertex(vid)
 
 
-class FullSourceVertexSet(collections.abc.Set, GraphComponent):
-    """
-    The set containing every vertex in the graph which is the source for some edge.
-    """
-
-    def __contains__(self, vertex: VertexOrID) -> bool:
-        vid = self._to_vid(vertex, self._graph_store)
-        return self._graph_store.has_outbound(vid)
-
-    def __iter__(self) -> Iterator['Vertex']:
-        for vid in self._graph_store.iter_vertices():
-            if self._graph_store.has_outbound(vid):
-                yield Vertex(vid, self._graph_store)
-
-    def __len__(self) -> int:
-        return int(sum(bool(self._graph_store.has_outbound(vid) for vid in self._graph_store.iter_vertices())))
-
-
-class FullSinkVertexSet(collections.abc.Set, GraphComponent):
-    """
-    The set containing every vertex in the graph which is the sink for some edge.
-    """
-
-    def __contains__(self, vertex: VertexOrID) -> bool:
-        vid = self._to_vid(vertex, self._graph_store)
-        return self._graph_store.has_inbound(vid)
-
-    def __iter__(self) -> Iterator['Vertex']:
-        for vid in self._graph_store.iter_vertices():
-            if self._graph_store.has_inbound(vid):
-                yield Vertex(vid, self._graph_store)
-
-    def __len__(self) -> int:
-        return int(sum(bool(self._graph_store.has_inbound(vid) for vid in self._graph_store.iter_vertices())))
-
-
 class FullEdgeSet(collections.abc.MutableSet, GraphComponent):
     """
     The complete set of every edge belonging to the graph.
     """
-
-    @property
-    def sources(self):
-        """The set of source vertices for this set of edges."""
-        return FullSourceVertexSet(self._graph_store)
-
-    @property
-    def sinks(self):
-        """The set of sink vertices for this set of edges."""
-        return FullSinkVertexSet(self._graph_store)
 
     def __contains__(self, edge: EdgeOrID) -> bool:
         eid = self._to_eid(edge, self._graph_store)
