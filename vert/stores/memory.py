@@ -54,39 +54,35 @@ class MemoryGraphStore(base.GraphStore):
                 if left != right and left_repr < repr(right):
                     yield base.UndirectedEdgeID(left, right)
 
-    def has_source(self, sink: base.VertexID) -> bool:
+    def has_inbound(self, sink: base.VertexID) -> bool:
         return bool(self._backward.get(sink, ()))
 
-    def has_sink(self, source: base.VertexID) -> bool:
+    def has_outbound(self, source: base.VertexID) -> bool:
         return bool(self._forward.get(source, ()))
 
-    def iter_sources(self, sink: Optional[base.VertexID] = None) -> Iterator[base.VertexID]:
-        if sink is None:
-            for vid, sinks in self._forward.items():
-                if sinks:
-                    yield vid
-        else:
-            yield from self._backward.get(sink, ())
+    def has_undirected(self, vid: base.VertexID) -> bool:
+        return bool(self._dual.get(vid, ()))
 
-    def iter_sinks(self, source: Optional[base.VertexID] = None) -> Iterator[base.VertexID]:
-        if source is None:
-            for vid, sources in self._backward.items():
-                if sources:
-                    yield vid
-        else:
-            yield from self._forward.get(source, ())
+    def iter_inbound(self, sink: base.VertexID) -> Iterator[base.DirectedEdgeID]:
+        for source in self._backward.get(sink, ()):
+            yield base.DirectedEdgeID(source, sink)
 
-    def count_sources(self, sink: Optional[base.VertexID] = None) -> int:
-        if sink is None:
-            return int(sum(bool(sinks) for sinks in self._forward.values()))
-        else:
-            return len(self._backward.get(sink, ()))
+    def iter_outbound(self, source: base.VertexID) -> Iterator[base.DirectedEdgeID]:
+        for sink in self._backward.get(source, ()):
+            yield base.DirectedEdgeID(source, sink)
 
-    def count_sinks(self, source: Optional[base.VertexID] = None) -> int:
-        if source is None:
-            return int(sum(bool(sources) for sources in self._backward.values()))
-        else:
-            return len(self._forward.get(source, ()))
+    def iter_undirected(self, vid: base.VertexID) -> Iterator[base.UndirectedEdgeID]:
+        for other in self._dual.get(vid, ()):
+            yield base.UndirectedEdgeID(vid, other)
+
+    def count_inbound(self, sink: base.VertexID) -> int:
+        return len(self._backward.get(sink, ()))
+
+    def count_outbound(self, source: base.VertexID) -> int:
+        return len(self._forward.get(source, ()))
+
+    def count_undirected(self, vid: base.VertexID) -> int:
+        return len(self._dual.get(vid, ()))
 
     def has_vertex(self, vid: base.VertexID) -> bool:
         return vid in self._forward

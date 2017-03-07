@@ -306,65 +306,62 @@ class DBMGraphStore(base.GraphStore):
             if key.startswith(EID_PREFIX):
                 yield self._decode_key(key, EID_PREFIX)
 
-    def has_source(self, sink: base.VertexID) -> bool:
+    def has_inbound(self, sink: base.VertexID) -> bool:
         try:
             return bool(self._retire_vertex(sink)[SOURCES_INDEX])
         except KeyError:
             return False
 
-    def has_sink(self, source: base.VertexID) -> bool:
+    def has_outbound(self, source: base.VertexID) -> bool:
         try:
             return bool(self._read_vertex(source)[SINKS_INDEX])
         except KeyError:
             return False
 
-    def iter_sources(self, sink: Optional[base.VertexID] = None) -> Iterator[base.VertexID]:
-        if sink is None:
-            for key in self.iter_vertices():
-                if self._read_vertex(key)[SINKS_INDEX]:
-                    yield key
-        else:
-            try:
-                yield from self._read_vertex(sink)[SOURCES_INDEX]
-            except KeyError:
-                pass
+    def has_undirected(self, vid: base.VertexID) -> bool:
+        try:
+            return bool(self._read_vertex(vid)[UNDIRECTED_INDEX])
+        except KeyError:
+            return False
 
-    def iter_sinks(self, source: Optional[base.VertexID] = None) -> Iterator[base.VertexID]:
-        if source is None:
-            for key in self.iter_vertices():
-                if self._read_vertex(key)[SOURCES_INDEX]:
-                    yield key
-        else:
-            try:
-                yield from self._read_vertex(source)[SINKS_INDEX]
-            except KeyError:
-                pass
+    def iter_inbound(self, sink: base.VertexID) -> Iterator[base.DirectedEdgeID]:
+        try:
+            for key in self._read_vertex(sink)[SOURCES_INDEX]:
+                yield base.DirectedEdgeID(key, sink)
+        except KeyError:
+            pass
 
-    def count_sources(self, sink: Optional[base.VertexID] = None) -> int:
-        if sink is None:
-            count = 0
-            for key in self.iter_vertices():
-                if self._read_vertex(key)[SINKS_INDEX]:
-                    count += 1
-            return count
-        else:
-            try:
-                return len(self._read_vertex(sink)[SOURCES_INDEX])
-            except KeyError:
-                pass
+    def iter_outbound(self, source: base.VertexID) -> Iterator[base.DirectedEdgeID]:
+        try:
+            for key in self._read_vertex(source)[SINKS_INDEX]:
+                yield base.DirectedEdgeID(source, key)
+        except KeyError:
+            pass
 
-    def count_sinks(self, source: Optional[base.VertexID] = None) -> int:
-        if source is None:
-            count = 0
-            for key in self.iter_vertices():
-                if self._read_vertex(key)[SOURCES_INDEX]:
-                    count += 1
-            return count
-        else:
-            try:
-                return len(self._read_vertex(source)[SINKS_INDEX])
-            except KeyError:
-                pass
+    def iter_undirected(self, vid: base.VertexID) -> Iterator[base.UndirectedEdgeID]:
+        try:
+            for key in self._read_vertex(vid)[UNDIRECTED_INDEX]:
+                yield base.UndirectedEdgeID(vid, key)
+        except KeyError:
+            pass
+
+    def count_inbound(self, sink: base.VertexID) -> int:
+        try:
+            return len(self._read_vertex(sink)[SOURCES_INDEX])
+        except KeyError:
+            return 0
+
+    def count_outbound(self, source: base.VertexID) -> int:
+        try:
+            return len(self._read_vertex(source)[SINKS_INDEX])
+        except KeyError:
+            return 0
+
+    def count_undirected(self, vid: base.VertexID) -> int:
+        try:
+            return len(self._read_vertex(vid)[UNDIRECTED_INDEX])
+        except KeyError:
+            return 0
 
     def has_vertex(self, vid: base.VertexID) -> bool:
         return vid in self._v_cache or self._encode_key(vid, VID_PREFIX) in self._db

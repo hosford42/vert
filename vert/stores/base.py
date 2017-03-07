@@ -118,32 +118,45 @@ class GraphStore:
         """Return an iterator over the IDs of every vertex in the graph."""
         raise NotImplementedError()
 
+    # TODO: Add flags for independent inclusion/exclusion of directed & undirected edges?
     def iter_edges(self) -> Iterator[EdgeID]:
         """Return an iterator over the IDs of every edge in the graph."""
         raise NotImplementedError()
 
-    def has_source(self, sink: VertexID) -> bool:
+    def has_inbound(self, sink: VertexID) -> bool:
         """Return a Boolean value indicating whether the given vertex has at least one inbound edge."""
         raise NotImplementedError()
 
-    def has_sink(self, source: VertexID) -> bool:
+    def has_outbound(self, source: VertexID) -> bool:
         """Return a Boolean value indicating whether the given vertex has at least one outbound edge."""
         raise NotImplementedError()
 
-    def iter_sources(self, sink: Optional[VertexID] = None) -> Iterator[VertexID]:
-        """Return an iterator over the IDs of every vertex which is linked to this vertex via an inbound edge."""
+    def has_undirected(self, vid: VertexID) -> bool:
+        """Return a Boolean value indicating whether the given vertex has at least one undirected edge."""
         raise NotImplementedError()
 
-    def iter_sinks(self, source: Optional[VertexID] = None) -> Iterator[VertexID]:
-        """Return an iterator over the IDs of every vertex which is linked to from this vertex via an outbound edge."""
+    def iter_inbound(self, sink: VertexID) -> Iterator[DirectedEdgeID]:
+        """Return an iterator over the IDs of every inbound directed edge to this vertex."""
         raise NotImplementedError()
 
-    def count_sources(self, sink: Optional[VertexID] = None) -> int:
-        """Return the number of inbound edges to this vertex."""
+    def iter_outbound(self, source: VertexID) -> Iterator[DirectedEdgeID]:
+        """Return an iterator over the IDs of every outbound directed edge from this vertex."""
         raise NotImplementedError()
 
-    def count_sinks(self, source: Optional[VertexID] = None) -> int:
-        """Return the number of outbound edges from this vertex."""
+    def iter_undirected(self, vid: VertexID) -> Iterator[UndirectedEdgeID]:
+        """Return an iterator over the IDs of every undirected edge connected to this vertex."""
+        raise NotImplementedError()
+
+    def count_inbound(self, sink: VertexID) -> int:
+        """Return the number of inbound directed edges to this vertex."""
+        raise NotImplementedError()
+
+    def count_outbound(self, source: VertexID) -> int:
+        """Return the number of outbound directed edges from this vertex."""
+        raise NotImplementedError()
+
+    def count_undirected(self, vid: VertexID) -> int:
+        """Return the number of undirected edges connected to this vertex."""
         raise NotImplementedError()
 
     def has_vertex(self, vid: VertexID) -> bool:

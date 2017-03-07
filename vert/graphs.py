@@ -5,7 +5,7 @@
 
 import collections.abc
 
-from typing import Union, Iterator, Hashable, Any, Optional, MutableMapping
+from typing import Union, Iterator, Hashable, Any, Optional, MutableMapping, Tuple
 
 from vert.stores.base import GraphStore, EdgeID, Label, VertexID, DirectedEdgeID, UndirectedEdgeID
 from vert.stores.memory import MemoryGraphStore
@@ -137,14 +137,15 @@ class FullSourceVertexSet(collections.abc.Set, GraphComponent):
 
     def __contains__(self, vertex: VertexOrID) -> bool:
         vid = self._to_vid(vertex, self._graph_store)
-        return self._graph_store.has_sink(vid)
+        return self._graph_store.has_outbound(vid)
 
     def __iter__(self) -> Iterator['Vertex']:
-        for vid in self._graph_store.iter_sources():
-            yield Vertex(vid, self._graph_store)
+        for vid in self._graph_store.iter_vertices():
+            if self._graph_store.has_outbound(vid):
+                yield Vertex(vid, self._graph_store)
 
     def __len__(self) -> int:
-        return self._graph_store.count_sources()
+        return int(sum(bool(self._graph_store.has_outbound(vid) for vid in self._graph_store.iter_vertices())))
 
 
 class FullSinkVertexSet(collections.abc.Set, GraphComponent):
@@ -154,14 +155,15 @@ class FullSinkVertexSet(collections.abc.Set, GraphComponent):
 
     def __contains__(self, vertex: VertexOrID) -> bool:
         vid = self._to_vid(vertex, self._graph_store)
-        return self._graph_store.has_source(vid)
+        return self._graph_store.has_inbound(vid)
 
     def __iter__(self) -> Iterator['Vertex']:
-        for vid in self._graph_store.iter_sinks():
-            yield Vertex(vid, self._graph_store)
+        for vid in self._graph_store.iter_vertices():
+            if self._graph_store.has_inbound(vid):
+                yield Vertex(vid, self._graph_store)
 
     def __len__(self) -> int:
-        return self._graph_store.count_sinks()
+        return int(sum(bool(self._graph_store.has_inbound(vid) for vid in self._graph_store.iter_vertices())))
 
 
 class FullEdgeSet(collections.abc.MutableSet, GraphComponent):
@@ -264,11 +266,11 @@ class SourceVertexSet(collections.abc.MutableSet, GraphComponent):
         return self._graph_store.has_edge(eid)
 
     def __iter__(self) -> Iterator['Vertex']:
-        for source in self._graph_store.iter_sources(self._vid):
-            yield Vertex(source, self._graph_store)
+        for eid in self._graph_store.iter_inbound(self._vid):
+            yield Vertex(eid.source, self._graph_store)
 
     def __len__(self) -> int:
-        return self._graph_store.count_sources(self._vid)
+        return self._graph_store.count_inbound(self._vid)
 
     def add(self, vertex: VertexOrID) -> 'Vertex':
         """
@@ -337,12 +339,11 @@ class InboundEdgeSet(collections.abc.Set, GraphComponent):
         return self._graph_store.has_edge(eid)
 
     def __iter__(self) -> Iterator['Edge']:
-        for source in self._graph_store.iter_sources(self._vid):
-            eid = DirectedEdgeID(source, self._vid)
+        for eid in self._graph_store.iter_inbound(self._vid):
             yield DirectedEdge(eid, self._graph_store)
 
     def __len__(self) -> int:
-        return self._graph_store.count_sources(self._vid)
+        return self._graph_store.count_inbound(self._vid)
 
     def __getitem__(self, vertex: VertexOrID) -> 'Edge':
         vid = self._to_vid(vertex, self._graph_store)
@@ -365,11 +366,11 @@ class SinkVertexSet(collections.abc.MutableSet, GraphComponent):
         return self._graph_store.has_edge(eid)
 
     def __iter__(self) -> Iterator['Vertex']:
-        for sink in self._graph_store.iter_sinks(self._vid):
-            yield Vertex(sink, self._graph_store)
+        for eid in self._graph_store.iter_outbound(self._vid):
+            yield Vertex(eid.sink, self._graph_store)
 
     def __len__(self) -> int:
-        return self._graph_store.count_sinks(self._vid)
+        return self._graph_store.count_outbound(self._vid)
 
     def add(self, vertex: VertexOrID) -> 'Vertex':
         """
@@ -438,12 +439,11 @@ class OutboundEdgeSet(collections.abc.Set, GraphComponent):
         return self._graph_store.has_edge(eid)
 
     def __iter__(self) -> Iterator['Edge']:
-        for sink in self._graph_store.iter_sinks(self._vid):
-            eid = DirectedEdgeID(self._vid, sink)
+        for eid in self._graph_store.iter_outbound(self._vid):
             yield DirectedEdge(eid, self._graph_store)
 
     def __len__(self) -> int:
-        return self._graph_store.count_sinks(self._vid)
+        return self._graph_store.count_outbound(self._vid)
 
     def __getitem__(self, vertex: VertexOrID) -> 'Edge':
         vid = self._to_vid(vertex, self._graph_store)
@@ -757,14 +757,19 @@ class Edge(GraphComponent):
         return self._graph_store.has_edge(self._eid)
 
     @property
+    def is_directed(self) -> bool:
+        raise NotImplementedError()
+
+    @property
     def eid(self) -> EdgeID:
         """The edge's unique ID."""
         return self._eid
 
     @property
-    def vertices(self) -> Iterator[VertexID]:
-        for vid in self._eid.vertices:
-            yield Vertex(vid, self._graph_store)
+    def vertices(self) -> Tuple[Vertex, Vertex]:
+        """A tuple of the vertices that the edge connects."""
+        # noinspection PyTypeChecker
+        return tuple(Vertex(vid, self._graph_store) for vid in self._eid.vertices)
 
     @property
     def labels(self) -> EdgeLabelSet:
@@ -790,8 +795,7 @@ class Edge(GraphComponent):
 
         :return: This Edge instance.
         """
-        self._graph_store.add_edge(self._eid)
-        return self
+        raise NotImplementedError()
 
     def remove(self) -> None:
         """
@@ -825,6 +829,10 @@ class DirectedEdge(Edge):
             raise TypeError(eid)
 
     @property
+    def is_directed(self) -> bool:
+        return True
+
+    @property
     def source(self) -> Vertex:
         """The vertex that is the source of the edge."""
         assert isinstance(self._eid, DirectedEdgeID)
@@ -835,6 +843,21 @@ class DirectedEdge(Edge):
         """The vertex that is the sink of the edge."""
         assert isinstance(self._eid, DirectedEdgeID)
         return Vertex(self._eid.sink, self._graph_store)
+
+    @property
+    def undirected(self) -> UndirectedEdge:
+        """The undirected edge connecting the two vertices."""
+        return UndirectedEdge(UndirectedEdgeID(*self._eid), self._graph_store)
+
+    def add(self) -> 'DirectedEdge':
+        """
+        Add the edge to the graph. If the edge already exists, do nothing. If either source or sink does not exist,
+        create it.
+
+        :return: This Edge instance.
+        """
+        self._graph_store.add_edge(self._eid)
+        return self
 
 
 class UndirectedEdge(Edge):
@@ -847,6 +870,20 @@ class UndirectedEdge(Edge):
         super().__init__(eid, graph_store)
         if not isinstance(self._eid, UndirectedEdgeID):
             raise TypeError(self._eid)
+
+    @property
+    def is_directed(self) -> bool:
+        return False
+
+    def add(self) -> 'UndirectedEdge':
+        """
+        Add the edge to the graph. If the edge already exists, do nothing. If either source or sink does not exist,
+        create it.
+
+        :return: This Edge instance.
+        """
+        self._graph_store.add_edge(self._eid)
+        return self
 
 
 class Graph:
