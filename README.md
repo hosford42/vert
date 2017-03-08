@@ -108,3 +108,5 @@ license. See LICENSE.txt for the full license agreement.
 * Add proper documentation strings.
 * Add an intro to the README file.
 * Support older versions of Python.
+* Consider adding flags to `GraphStore.iter_edges()` for independent inclusion/exclusion of 
+  directed & undirected edges. 

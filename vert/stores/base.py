@@ -136,7 +136,6 @@ class GraphStore:
         """Return an iterator over the IDs of every vertex in the graph."""
         raise NotImplementedError()
 
-    # TODO: Add flags for independent inclusion/exclusion of directed & undirected edges?
     def iter_edges(self) -> Iterator[EdgeID]:
         """Return an iterator over the IDs of every edge in the graph."""
         raise NotImplementedError()
