@@ -3,6 +3,12 @@
 # Copyright 2017 Aaron M. Hosford
 # See LICENSE.txt for licensing information.
 
+
+"""
+Definitions for GraphStore abstract base class and type descriptors for labels and vertex/edge IDs.
+"""
+
+
 from typing import NewType, Hashable, Any, Optional, Iterator, NamedTuple, Union
 
 
@@ -21,6 +27,9 @@ Label = NewType('Label', Hashable)
 
 
 class EdgeID:
+    """
+    Common base class for DirectedEdgeID and UndirectedEdgeID.
+    """
 
     @property
     def vertices(self) -> Iterator[VertexID]:
@@ -29,6 +38,7 @@ class EdgeID:
 
     @property
     def is_directed(self) -> bool:
+        """Whether or not the edge is directed."""
         raise NotImplementedError()
 
     def __iter__(self) -> Iterator[VertexID]:
@@ -39,6 +49,9 @@ _DirectedEdgeID = NamedTuple('DirectedEdgeId', [('source', VertexID), ('sink', V
 
 
 class DirectedEdgeID(_DirectedEdgeID, EdgeID):
+    """
+    Edge ID signifiers for directed edges.
+    """
 
     def __new__(cls, source: VertexID, sink: VertexID, *args, **kwargs):
         return _DirectedEdgeID.__new__(cls, source, sink, *args, **kwargs)
@@ -50,6 +63,7 @@ class DirectedEdgeID(_DirectedEdgeID, EdgeID):
 
     @property
     def is_directed(self) -> bool:
+        """Whether or not the edge is directed."""
         return True
 
     def __iter__(self) -> Iterator[VertexID]:
@@ -57,6 +71,9 @@ class DirectedEdgeID(_DirectedEdgeID, EdgeID):
 
 
 class UndirectedEdgeID(frozenset, EdgeID):
+    """
+    Edge ID signifiers for undirected edges.
+    """
 
     def __init__(self, vid1: VertexID, vid2: VertexID):
         super().__init__((vid1, vid2))
@@ -66,6 +83,7 @@ class UndirectedEdgeID(frozenset, EdgeID):
 
     @property
     def is_directed(self) -> bool:
+        """Whether or not the edge is directed."""
         return False
 
     @property
@@ -196,67 +214,101 @@ class GraphStore:
         raise NotImplementedError()
 
     def add_vertex_label(self, vid: VertexID, label: Label) -> None:
+        """Add a label to the vertex. If the vertex already has the label, do nothing."""
         raise NotImplementedError()
 
     def has_vertex_label(self, vid: VertexID, label: Label) -> bool:
+        """Return a Boolean indicating whether the vertex has the label."""
         raise NotImplementedError()
 
     def discard_vertex_label(self, vid: VertexID, label: Label) -> bool:
+        """
+        Remove the label from the vertex. If the vertex does not have the label, do nothing. Return a Boolean indicating
+        whether or not a label was removed.
+        """
         raise NotImplementedError()
 
     def iter_vertex_labels(self, vid: VertexID) -> Iterator[Label]:
+        """Return an iterator over the labels for the vertex."""
         raise NotImplementedError()
 
     def count_vertex_labels(self, vid: VertexID) -> int:
+        """Return the number of labels the vertex has."""
         raise NotImplementedError()
 
     def add_edge_label(self, eid: EdgeID, label: Label) -> None:
+        """Add a label to the edge. If the edge already has the label, do nothing."""
         raise NotImplementedError()
 
     def has_edge_label(self, eid: EdgeID, label: Label) -> bool:
+        """Return a Boolean indicating whether or not the edge has the label."""
         raise NotImplementedError()
 
     def discard_edge_label(self, eid: EdgeID, label: Label) -> bool:
+        """
+        Remove the label from the edge. If the edge does not have the label, do nothing. Return a Boolean indicating
+        whether or not a label was removed.
+        """
         raise NotImplementedError()
 
     def iter_edge_labels(self, eid: EdgeID) -> Iterator[Label]:
+        """Return an iterator over the labels for the edge."""
         raise NotImplementedError()
 
     def count_edge_labels(self, eid: EdgeID) -> int:
+        """Return the number of labels the edge has."""
         raise NotImplementedError()
 
     def get_vertex_data(self, vid: VertexID, key: Hashable) -> Any:
+        """Return the value stored in the vertex for this key."""
         raise NotImplementedError()
 
     def set_vertex_data(self, vid: VertexID, key: Hashable, value: Any) -> None:
+        """Store a value in the vertex for this key."""
         raise NotImplementedError()
 
     def has_vertex_data(self, vid: VertexID, key: Hashable) -> bool:
+        """Return a Boolean indicating whether a value is stored in the vertex for this key."""
         raise NotImplementedError()
 
     def discard_vertex_data(self, vid: VertexID, key: Hashable) -> bool:
+        """
+        Remove the value stored in the vertex under this key. If no value is stored for the key, do nothing. Return
+        a Boolean indicating whether a key/value pair was removed from the vertex.
+        """
         raise NotImplementedError()
 
     def iter_vertex_data_keys(self, vid: VertexID) -> Iterator[Hashable]:
+        """Return an iterator over the keys for which data is stored in the vertex."""
         raise NotImplementedError()
 
     def count_vertex_data_keys(self, vid: VertexID) -> int:
+        """Return the number of key/value pairs stored in the vertex."""
         raise NotImplementedError()
 
     def get_edge_data(self, eid: EdgeID, key: Hashable) -> Any:
+        """Return the value stored in the edge for this key."""
         raise NotImplementedError()
 
     def set_edge_data(self, eid: EdgeID, key: Hashable, value: Any) -> None:
+        """Store a value in the edge for this key."""
         raise NotImplementedError()
 
     def has_edge_data(self, eid: EdgeID, key: Hashable) -> bool:
+        """Return a Boolean indicating whether a value is stored in the edge for this key."""
         raise NotImplementedError()
 
     def discard_edge_data(self, eid: EdgeID, key: Hashable) -> bool:
+        """
+        Remove the value stored in the edge under this key. If no value is stored for the key, do nothing. Return
+        a Boolean indicating whether a key/value pair was removed from the edge.
+        """
         raise NotImplementedError()
 
     def iter_edge_data_keys(self, eid: EdgeID) -> Iterator[Hashable]:
+        """Return an iterator over the keys for which data is stored in the edge."""
         raise NotImplementedError()
 
     def count_edge_data_keys(self, eid: EdgeID) -> int:
+        """Return the number of key/value pairs stored in the edge."""
         raise NotImplementedError()
