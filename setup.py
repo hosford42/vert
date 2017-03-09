@@ -69,7 +69,7 @@ setup(
     include_package_data=True,
     keywords='graph vertex edge node link network semantic database',
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
