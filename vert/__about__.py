@@ -3,9 +3,12 @@
 # Copyright 2017 Aaron M. Hosford
 # See LICENSE.txt for licensing information.
 
-
 # Thanks to Geoffrey Lehée for the idea for this file.
 # https://toxi.nu/blog/how-to-store-your-python-package-metadata/
+
+"""
+Metadata for the vert package.
+"""
 
 
 __all__ = [
