@@ -110,3 +110,6 @@ license. See LICENSE.txt for the full license agreement.
 * Support older versions of Python.
 * Consider adding flags to `GraphStore.iter_edges()` for independent inclusion/exclusion of 
   directed & undirected edges. 
+* Add a `rebuild()` method to `DBMGraphStore` which ensures the stored graph is in a
+  consistent state through minimum modifications, allowing recovery from disk or power
+  failure.
