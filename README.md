@@ -121,6 +121,7 @@ license. See LICENSE.txt for the full license agreement.
 * Add support for reading & writing common graph file formats.
 * Add support for transferring from one graph store to another.
 * 100% code coverage for unit testing.
+* Continuous integration for unit testing.
 * Prettify the string representations for Edges and Vertices.
 * Make the DBM graph store more efficient.
 * Support older versions of Python.
