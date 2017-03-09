@@ -3,6 +3,12 @@
 # Copyright 2017 Aaron M. Hosford
 # See LICENSE.txt for licensing information.
 
+
+"""
+The definitions for the universal object-oriented graph interface.
+"""
+
+
 import collections.abc
 
 from typing import Union, Iterator, Hashable, Any, Optional, MutableMapping, Tuple
