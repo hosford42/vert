@@ -30,7 +30,7 @@ __title__ = 'vert'
 __summary__ = 'Graphs for Python'
 __url__ = 'https://pypi.python.org/pypi/vert'
 
-__version__ = '1.0'
+__version__ = '1.0.1'
 __status__ = 'Production'
 
 __author__ = 'Aaron M. Hosford'
