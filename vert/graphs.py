@@ -22,11 +22,13 @@ __all__ = [
     'Vertex',
     'Edge',
     'Graph',
+    'DirectedEdge',
+    'UndirectedEdge',
 ]
 
 
 VertexOrID = Union[VertexID, 'Vertex']
-EdgeOrID = Union[EdgeID, 'Edge']
+EdgeOrID = Union[EdgeID, 'Edge', Tuple[VertexOrID, VertexOrID]]
 
 
 class GraphComponent:
@@ -69,14 +71,15 @@ class GraphComponent:
             return edge
         elif isinstance(edge, (tuple, list)):
             assert len(edge) == 2
-            return DirectedEdgeID(*edge)
+            return DirectedEdgeID(*(GraphComponent._to_vid(v, graph_store) for v in edge))
         else:
             assert isinstance(edge, (set, frozenset))
             assert 1 <= len(edge) <= 2
             if len(edge) == 1:
                 for v in edge:
+                    v = GraphComponent._to_vid(v, graph_store)
                     return UndirectedEdgeID(v, v)
-            return UndirectedEdgeID(*edge)
+            return UndirectedEdgeID(*(GraphComponent._to_vid(v, graph_store) for v in edge))
 
 
 class FullVertexSet(collections.abc.MutableSet, GraphComponent):
@@ -152,7 +155,7 @@ class FullEdgeSet(collections.abc.MutableSet, GraphComponent):
     def __len__(self) -> int:
         return self._graph_store.count_edges()
 
-    def __getitem__(self, eid: EdgeID) -> 'Edge':
+    def __getitem__(self, eid: EdgeOrID) -> 'Edge':
         return Edge.from_eid(eid, self._graph_store)
 
     def add(self, edge: EdgeOrID) -> 'Edge':
@@ -681,7 +684,7 @@ class Edge(GraphComponent):
     """
 
     @classmethod
-    def from_eid(cls, eid: EdgeID, graph_store: GraphStore) -> 'Edge':
+    def from_eid(cls, eid: EdgeOrID, graph_store: GraphStore) -> 'Edge':
         eid = cls._to_eid(eid, None)
         if isinstance(eid, DirectedEdgeID):
             return DirectedEdge(eid, graph_store)
