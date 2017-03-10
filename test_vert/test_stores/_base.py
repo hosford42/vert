@@ -8,7 +8,7 @@ from typing import Type
 import unittest
 
 
-from vert import Graph, GraphStore, Vertex, Edge
+from vert import Graph, GraphStore, Vertex, Edge, DirectedEdge
 
 
 class TestGraphStore(unittest.TestCase):
@@ -177,7 +177,7 @@ class TestGraphStore(unittest.TestCase):
         vid2 = 'v5'
         eid = (vid1, vid2)
         edge = self.graph.edges[eid]
-        self.assertIsInstance(edge, Edge)
+        self.assertIsInstance(edge, DirectedEdge)
         self.assertIsInstance(edge.source, Vertex)
         self.assertIsInstance(edge.sink, Vertex)
         self.assertEqual(edge.eid, eid)
