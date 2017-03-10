@@ -27,7 +27,7 @@ __all__ = [
 
 
 __title__ = 'vert'
-__summary__ = 'Graphs for Python'
+__summary__ = 'Universal Graph Interface for Python'
 __url__ = 'https://pypi.python.org/pypi/vert'
 
 __version__ = '1.0.1'
